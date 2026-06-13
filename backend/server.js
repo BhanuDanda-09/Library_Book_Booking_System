@@ -1,7 +1,7 @@
 require('dotenv').config();
-const express   = require('express');
-const cors      = require('cors');
-const path      = require('path');
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
 const connectDB = require('./config/db');
 
 const app = express();
@@ -10,9 +10,12 @@ const app = express();
 connectDB();
 
 // ── Core Middleware ────────────────────────────────
-app.use(cors({
-    origin: "https://library-book-booking-system.vercel.app/"
-}));
+app.use(
+  cors({
+    origin: "https://library-book-booking-system.vercel.app",
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -26,8 +29,8 @@ app.use((req, res, next) => {
 });
 
 // ── API Routes (MVC) ───────────────────────────────
-app.use('/api/auth',         require('./routes/authRoutes'));
-app.use('/api/books',        require('./routes/bookRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/books', require('./routes/bookRoutes'));
 app.use('/api/reservations', require('./routes/reservationRoutes'));
 
 // ── Health Check ───────────────────────────────────
