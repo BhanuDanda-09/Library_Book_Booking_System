@@ -1,0 +1,159 @@
+.navbar-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 70px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+  z-index: 1000;
+  transition: var(--transition-smooth);
+}
+
+.navbar-container {
+  max-width: 1200px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 22px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.brand-icon {
+  font-size: 24px;
+}
+
+.brand-name {
+  color: #0f172a;
+}
+
+.brand-sub {
+  color: var(--primary);
+  font-weight: 500;
+  font-size: 14px;
+  align-self: flex-end;
+  margin-bottom: 3px;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.nav-item {
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--text-muted);
+  position: relative;
+  padding: 6px 0;
+  transition: var(--transition-smooth);
+}
+
+.nav-item::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: var(--primary);
+  transition: var(--transition-smooth);
+}
+
+.nav-item:hover {
+  color: var(--primary);
+}
+
+.nav-item:hover::after {
+  width: 100%;
+}
+
+.nav-item.active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.nav-item.active::after {
+  width: 100%;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+}
+
+.user-profile-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  transition: var(--transition-smooth);
+}
+
+.user-profile-trigger:hover {
+  background: rgba(99, 102, 241, 0.1);
+  box-shadow: var(--shadow-sm);
+}
+
+.user-welcome-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.user-profile-menu-header {
+  padding: 8px 12px;
+}
+
+.user-menu-name {
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.user-menu-role {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.btn-nav-login {
+  color: var(--text-main) !important;
+  font-weight: 500 !important;
+}
+
+.btn-nav-login:hover {
+  color: var(--primary) !important;
+}
+
+.btn-nav-register {
+  font-weight: 600 !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3) !important;
+}
+
+@media (max-width: 768px) {
+  .nav-menu {
+    display: none; /* In a real app we would add a drawer, but for this complete layout we optimize core layouts */
+  }
+}

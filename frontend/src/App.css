@@ -1,0 +1,21 @@
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.main-layout {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 100px 24px 40px; /* Top padding leaves space for the sticky Glassmorphic Navbar */
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .main-layout {
+    padding: 85px 16px 30px;
+  }
+}

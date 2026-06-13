@@ -1,0 +1,171 @@
+.catalog-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+}
+
+.catalog-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 16px;
+}
+
+.catalog-title {
+  margin: 0 !important;
+  font-weight: 800 !important;
+  color: #0f172a;
+}
+
+.btn-clear-filters {
+  border-color: #d9d9d9 !important;
+  font-weight: 500 !important;
+}
+
+.btn-clear-filters:hover {
+  color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+/* Catalog Filters Bar */
+.catalog-filters-bar {
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.col-avail-switch {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.filter-label {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.switch-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.switch-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-main);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Category Slider */
+.category-scroll-container {
+  width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding-bottom: 6px;
+  margin-top: 4px;
+  /* Hide scrollbars for a clean look */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+
+.category-scroll-container::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+.category-radio-group {
+  display: flex !important;
+  gap: 8px;
+}
+
+.category-radio-btn {
+  border-radius: 20px !important;
+  border: 1px solid var(--border-color) !important;
+  background: #f8fafc !important;
+  color: var(--text-muted) !important;
+  font-weight: 500 !important;
+  transition: var(--transition-smooth) !important;
+  height: 36px !important;
+  line-height: 34px !important;
+  padding: 0 16px !important;
+}
+
+.category-radio-btn::before {
+  display: none !important; /* Hide the Ant Design divider line between buttons */
+}
+
+.category-radio-btn:hover {
+  color: var(--primary) !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+.category-radio-btn.ant-radio-button-wrapper-checked {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.25) !important;
+}
+
+/* Grids and Loading */
+.catalog-books-grid {
+  margin-top: 10px;
+}
+
+.catalog-loading-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 100px 0;
+}
+
+.catalog-empty-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 80px 24px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Pagination */
+.catalog-pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+  margin-bottom: 20px;
+}
+
+.catalog-pagination .ant-pagination-item-active {
+  border-color: var(--primary) !important;
+  background-color: var(--primary) !important;
+}
+
+.catalog-pagination .ant-pagination-item-active a {
+  color: #ffffff !important;
+}
+
+@media (max-width: 768px) {
+  .catalog-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .col-avail-switch {
+    justify-content: flex-start;
+  }
+  
+  .catalog-filters-bar {
+    padding: 16px;
+  }
+}
