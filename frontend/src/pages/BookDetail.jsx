@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useLibrary } from "../context/LibraryContext";
 import { useAuth } from "../context/AuthContext";
+import { demoBooks } from "../services/demoData";
 import API from "../services/api";
 import { Row, Col, Tag, Button, Table, Typography, Space, Card, Spin, Alert, Modal, Descriptions } from "antd";
 import { ArrowLeftOutlined, BookOutlined, UserOutlined, CalendarOutlined, GlobalOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
@@ -24,6 +25,16 @@ export default function BookDetail() {
   // Fetch book details on mount
   useEffect(() => {
     const fetchBookDetail = async () => {
+      if (id && id.startsWith("demo-")) {
+        const found = demoBooks.find((b) => b._id === id);
+        if (found) {
+          setBook(found);
+          setErrorMsg("");
+          setIsLoading(false);
+          return;
+        }
+      }
+
       try {
         setIsLoading(true);
         const res = await API.get(`/books/${id}`);
@@ -34,7 +45,13 @@ export default function BookDetail() {
         }
       } catch (err) {
         console.error("Fetch book detail error:", err);
-        setErrorMsg(err.response?.data?.message || "Failed to load book details.");
+        const found = demoBooks.find((b) => b._id === id);
+        if (found) {
+          setBook(found);
+          setErrorMsg("");
+        } else {
+          setErrorMsg(err.response?.data?.message || "Failed to load book details.");
+        }
       } finally {
         setIsLoading(false);
       }

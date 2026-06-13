@@ -1,18 +1,24 @@
 import { useEffect } from "react";
 import { useLibrary } from "../context/LibraryContext";
-import { Link } from "react-router-dom";
-import { Table, Tag, Typography, Alert, Card, Spin, Space, Button, Badge } from "antd";
-import { BookOutlined, ClockCircleOutlined, CalendarOutlined, CheckCircleOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { Link, useNavigate } from "react-router-dom";
+import { demoBookings } from "../services/demoData";
+import { Table, Tag, Typography, Alert, Card, Spin, Space, Button, List, Row, Col } from "antd";
+import { BookOutlined, ClockCircleOutlined, CalendarOutlined, CheckCircleOutlined, InfoCircleOutlined, CheckSquareOutlined, WarningOutlined } from "@ant-design/icons";
 import "./MyBookings.css";
 
 const { Title, Text } = Typography;
 
 export default function MyBookings() {
   const { bookings, isLoadingBookings, fetchMyReservations } = useLibrary();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchMyReservations();
   }, [fetchMyReservations]);
+
+  // Determine active booking list (DB vs fallback demo)
+  const activeBookings = bookings && bookings.length > 0 ? bookings : demoBookings;
+  const isDemo = !(bookings && bookings.length > 0);
 
   // Status badge styling mapper
   const getStatusTag = (status) => {
@@ -38,7 +44,6 @@ export default function MyBookings() {
     });
   };
 
-  // Ant Design Table Columns definition
   const columns = [
     {
       title: "Book Title",
@@ -53,7 +58,7 @@ export default function MyBookings() {
           ) : (
             <Text type="danger">Book Removed</Text>
           )}
-          {book && <Text type="secondary" size="small">by {book.author}</Text>}
+          {book && <Text type="secondary" style={{ fontSize: "12px" }}>by {book.author}</Text>}
         </Space>
       ),
     },
@@ -87,11 +92,11 @@ export default function MyBookings() {
       title: "Fine Status",
       dataIndex: "fine",
       key: "fine",
-      render: (fine, record) => {
+      render: (fine) => {
         if (!fine || fine.amount === 0) return "-";
         return (
           <Space>
-            <Text type="danger" strong>${fine.amount}</Text>
+            <Text type="danger" strong>${fine.amount.toFixed(2)}</Text>
             {fine.paid ? <Tag color="green">PAID</Tag> : <Tag color="red">UNPAID</Tag>}
           </Space>
         );
@@ -101,62 +106,94 @@ export default function MyBookings() {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      render: (status) => getStatusTag(status),
+      render: (status, record) => {
+        const isOverdue = record.status === "issued" && record.dueDate && new Date(record.dueDate) < new Date();
+        return isOverdue ? <Tag color="volcano">OVERDUE</Tag> : getStatusTag(status);
+      },
     },
   ];
 
-  if (isLoadingBookings) {
-    return (
-      <div className="bookings-loading-wrapper">
-        <Spin size="large" tip="Loading your reservations..." />
-      </div>
-    );
-  }
+  const guidelines = [
+    "Approved reservations must be collected from the library front desk.",
+    "Bring your student/library ID while collecting books.",
+    "Reserved books must be collected within 3 days of approval.",
+    "Books should be returned on or before the due date.",
+    "Overdue books incur a fee of $5 per day.",
+    "Lost or damaged books must be reported immediately.",
+    "Contact the librarian for renewal requests."
+  ];
 
   return (
     <div className="my-bookings-container">
       {/* Page Header */}
       <div className="bookings-page-header">
         <div>
-          <Title level={2} className="bookings-title">My Bookings</Title>
-          <Text type="secondary">Track your book lending history and due dates</Text>
+          <Title level={2} className="bookings-title">My Reservations</Title>
+          <Text type="secondary">
+            Track your book borrowing history, check due dates, and monitor overdue fines. {isDemo && "(Rendering demo fallbacks)"}
+          </Text>
         </div>
       </div>
 
-      {/* Info notice */}
-      <Alert
-        message="Reservation Pick-up and Returns Guide"
-        description="Pending and approved book reservations must be claimed physically at the library front desk. Returns are processed by librarians, who will assess overdue fees if books are returned past their due dates ($5 per day)."
-        type="info"
-        showIcon
-        icon={<InfoCircleOutlined />}
-        style={{ marginBottom: 24 }}
-      />
-
-      {bookings.length === 0 ? (
-        <Card className="empty-bookings-card" bordered={false}>
-          <Space direction="vertical" size="large" align="center">
-            <div className="empty-icon-wrap">📂</div>
-            <div>
-              <Title level={4}>No bookings found</Title>
-              <Text type="secondary">You haven't requested any book reservations yet.</Text>
+      <Row gutter={[24, 24]}>
+        {/* Bookings Table Column */}
+        <Col xs={24} lg={16}>
+          {isLoadingBookings ? (
+            <div className="bookings-loading-wrapper">
+              <Spin size="large" description="Loading reservations..." />
             </div>
-            <Link to="/catalog">
-              <Button type="primary" size="large">Browse Catalog</Button>
-            </Link>
-          </Space>
-        </Card>
-      ) : (
-        <Card className="table-card" bordered={false}>
-          <Table
-            dataSource={bookings}
-            columns={columns}
-            rowKey="_id"
-            pagination={{ pageSize: 10 }}
-            className="bookings-table"
-          />
-        </Card>
-      )}
+          ) : activeBookings.length === 0 ? (
+            <Card className="empty-bookings-card" variant="borderless">
+              <Space direction="vertical" size="large" align="center">
+                <div className="empty-icon-wrap">📂</div>
+                <div>
+                  <Title level={4}>No reservations found</Title>
+                  <Text type="secondary">You haven't requested any book bookings yet.</Text>
+                </div>
+                <Button type="primary" size="large" onClick={() => navigate("/catalog")}>
+                  Browse Catalog
+                </Button>
+              </Space>
+            </Card>
+          ) : (
+            <Card className="table-card" variant="borderless">
+              <Table
+                dataSource={activeBookings}
+                columns={columns}
+                rowKey="_id"
+                pagination={{ pageSize: 8 }}
+                className="bookings-table"
+              />
+            </Card>
+          )}
+        </Col>
+
+        {/* Guidelines checklist sidebar */}
+        <Col xs={24} lg={8}>
+          <Card 
+            title={
+              <Space>
+                <InfoCircleOutlined style={{ color: "#6366f1" }} />
+                <span>Library Reservation & Return Guidelines</span>
+              </Space>
+            }
+            variant="borderless"
+            className="bookings-guidelines-sidebar"
+          >
+            <List
+              dataSource={guidelines}
+              renderItem={(item) => (
+                <List.Item style={{ borderBottom: "none", padding: "6px 0", alignItems: "flex-start" }}>
+                  <Space align="start">
+                    <CheckSquareOutlined style={{ color: "#10b981", marginTop: "3px" }} />
+                    <Text style={{ fontSize: "13px" }}>{item}</Text>
+                  </Space>
+                </List.Item>
+              )}
+            />
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 }

@@ -35,7 +35,7 @@ export default function Login() {
         <div className="login-card-header">
           <span className="login-logo">📚</span>
           <Title level={2} className="login-title">Welcome Back</Title>
-          <Text type="secondary">Access your Aetherius Library account</Text>
+          <Text type="secondary">Access your Smart Library account</Text>
         </div>
 
         {errorMsg && (

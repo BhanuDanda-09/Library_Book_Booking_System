@@ -1,0 +1,119 @@
+.student-dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.welcome-banner {
+  background: white;
+  padding: 24px 32px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.welcome-title {
+  margin-bottom: 4px !important;
+  font-weight: 800 !important;
+}
+
+.profile-action-col {
+  display: flex;
+  align-items: center;
+}
+
+.stats-row .stat-card {
+  box-shadow: var(--shadow-sm);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  transition: var(--transition-smooth);
+}
+
+.stats-row .stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-card.total-borrowed {
+  border-left: 4px solid #10b981;
+}
+
+.stat-card.active-reservations {
+  border-left: 4px solid #f59e0b;
+}
+
+.stat-card.overdue-books {
+  border-left: 4px solid #dc2626;
+}
+
+.stat-card.outstanding-fines {
+  border-left: 4px solid #ef4444;
+}
+
+.bookings-table-card {
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.bookings-table-card .ant-card-head {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.view-all-bookings-link {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.view-all-bookings-link:hover {
+  color: var(--primary-hover);
+}
+
+.book-link-title {
+  color: #1f2937;
+  transition: var(--transition-smooth);
+}
+
+.book-link-title:hover {
+  color: var(--primary);
+}
+
+.shortcuts-card {
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.activity-card {
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.guidelines-card-checklist {
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  background: rgba(99, 102, 241, 0.02);
+}
+
+.guidelines-card-checklist .ant-card-head {
+  border-bottom: 1px solid var(--border-color);
+}
+
+@media (max-width: 768px) {
+  .welcome-banner {
+    padding: 20px;
+    text-align: center;
+  }
+  
+  .profile-action-col {
+    justify-content: center;
+    margin-top: 16px;
+    width: 100%;
+  }
+
+  .profile-action-col button {
+    width: 100%;
+  }
+}

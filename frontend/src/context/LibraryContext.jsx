@@ -73,6 +73,10 @@ export function LibraryProvider({ children }) {
 
   // Student makes a new reservation request
   const createReservation = async (bookId) => {
+    if (bookId && bookId.startsWith("demo-")) {
+      message.success("Reservation request submitted successfully! (Demo Mode)");
+      return { success: true };
+    }
     try {
       const res = await API.post("/reservations", { bookId });
       if (res.data.success) {
@@ -83,6 +87,10 @@ export function LibraryProvider({ children }) {
       }
     } catch (err) {
       console.error("Create reservation error:", err);
+      if (bookId && bookId.startsWith("demo-")) {
+        message.success("Reservation request submitted successfully! (Demo Fallback)");
+        return { success: true };
+      }
       const errMsg = err.response?.data?.message || "Failed to create reservation";
       message.error(errMsg);
       return { success: false, message: errMsg };
@@ -91,6 +99,10 @@ export function LibraryProvider({ children }) {
 
   // Librarian updates a reservation's status (approve, issue, return, cancel)
   const updateReservationStatus = async (id, status) => {
+    if (id && id.startsWith("booking-demo-")) {
+      message.success(`Reservation status updated to ${status} (Demo Mode)`);
+      return { success: true };
+    }
     try {
       const res = await API.put(`/reservations/${id}/status`, { status });
       if (res.data.success) {
@@ -100,6 +112,10 @@ export function LibraryProvider({ children }) {
       }
     } catch (err) {
       console.error("Update reservation status error:", err);
+      if (id && id.startsWith("booking-demo-")) {
+        message.success(`Reservation status updated to ${status} (Demo Fallback)`);
+        return { success: true };
+      }
       const errMsg = err.response?.data?.message || "Failed to update reservation status";
       message.error(errMsg);
       return { success: false, message: errMsg };
@@ -144,6 +160,10 @@ export function LibraryProvider({ children }) {
 
   // Librarian deletes a book
   const deleteBook = async (id) => {
+    if (id && id.startsWith("demo-")) {
+      message.success("Book removed from catalogue. (Demo Mode)");
+      return { success: true };
+    }
     try {
       const res = await API.delete(`/books/${id}`);
       if (res.data.success) {
@@ -152,6 +172,10 @@ export function LibraryProvider({ children }) {
       }
     } catch (err) {
       console.error("Delete book error:", err);
+      if (id && id.startsWith("demo-")) {
+        message.success("Book removed from catalogue. (Demo Fallback)");
+        return { success: true };
+      }
       const errMsg = err.response?.data?.message || "Failed to delete book";
       message.error(errMsg);
       return { success: false, message: errMsg };

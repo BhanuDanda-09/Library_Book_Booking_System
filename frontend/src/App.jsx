@@ -2,12 +2,15 @@ import { BrowserRouter } from "react-router-dom";
 import { ConfigProvider, theme } from "antd";
 import { AuthProvider } from "./context/AuthContext";
 import { LibraryProvider } from "./context/LibraryContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import NavBar from "./components/NavBar";
 import Footer from "./components/Footer";
 import AppRoutes from "./Routes/AppRoutes";
 import "./App.css";
 
-export default function App() {
+function AppContent() {
+  const { isDark } = useTheme();
+
   return (
     <ConfigProvider
       theme={{
@@ -20,7 +23,7 @@ export default function App() {
           borderRadius: 8, // Soft rounded borders
           fontFamily: "'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
         },
-        algorithm: theme.defaultAlgorithm,
+        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
       }}
     >
       <BrowserRouter>
@@ -37,5 +40,13 @@ export default function App() {
         </AuthProvider>
       </BrowserRouter>
     </ConfigProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }

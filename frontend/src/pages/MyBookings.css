@@ -60,3 +60,14 @@
   align-items: center;
   padding: 120px 0;
 }
+
+.bookings-guidelines-sidebar {
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  background: rgba(99, 102, 241, 0.02);
+}
+
+.bookings-guidelines-sidebar .ant-card-head {
+  border-bottom: 1px solid var(--border-color);
+}

@@ -37,7 +37,7 @@ export default function Register() {
         <div className="register-card-header">
           <span className="register-logo">📚</span>
           <Title level={2} className="register-title">Create Account</Title>
-          <Text type="secondary">Join the Aetherius Library system</Text>
+          <Text type="secondary">Join the Smart Library system</Text>
         </div>
 
         {errorMsg && (

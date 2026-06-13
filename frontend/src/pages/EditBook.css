@@ -1,0 +1,28 @@
+.edit-book-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.edit-book-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60vh;
+}
+
+.edit-book-card {
+  box-shadow: var(--shadow-sm);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 8px;
+}
+
+.edit-book-header {
+  margin-bottom: 24px;
+}
+
+.edit-book-title {
+  font-weight: 800 !important;
+  margin-bottom: 4px !important;
+}

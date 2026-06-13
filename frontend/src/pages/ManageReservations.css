@@ -1,0 +1,41 @@
+.manage-reservations-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.manage-res-header {
+  margin-bottom: 8px;
+}
+
+.manage-res-title {
+  font-weight: 800 !important;
+  margin-bottom: 4px !important;
+}
+
+.manage-res-card {
+  box-shadow: var(--shadow-sm);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 8px;
+}
+
+.res-filters-bar {
+  margin-bottom: 24px;
+}
+
+.manage-res-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 40vh;
+}
+
+.booking-book-link {
+  color: #1f2937;
+  transition: var(--transition-smooth);
+}
+
+.booking-book-link:hover {
+  color: var(--primary);
+}

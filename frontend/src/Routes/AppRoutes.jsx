@@ -7,6 +7,11 @@ import Login from "../pages/Login";
 import Register from "../pages/Register";
 import MyBookings from "../pages/MyBookings";
 import Dashboard from "../pages/Dashboard";
+import StudentDashboard from "../pages/StudentDashboard";
+import ProfilePage from "../pages/ProfilePage";
+import AddBook from "../pages/AddBook";
+import EditBook from "../pages/EditBook";
+import ManageReservations from "../pages/ManageReservations";
 import { Spin } from "antd";
 
 // Wrapper for checking if user is authenticated and matches required role
@@ -74,6 +79,14 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/student-dashboard"
+        element={
+          <ProtectedRoute allowedRoles={["student"]}>
+            <StudentDashboard />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Librarian Protected Routes */}
       <Route
@@ -81,6 +94,40 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={["librarian"]}>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/add-book"
+        element={
+          <ProtectedRoute allowedRoles={["librarian"]}>
+            <AddBook />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/edit-book/:id"
+        element={
+          <ProtectedRoute allowedRoles={["librarian"]}>
+            <EditBook />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/manage-reservations"
+        element={
+          <ProtectedRoute allowedRoles={["librarian"]}>
+            <ManageReservations />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Shared Protected Routes */}
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
           </ProtectedRoute>
         }
       />

@@ -2,18 +2,20 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
 import { Avatar, Dropdown, Button, Space, Badge } from "antd";
-import { UserOutlined, LogoutOutlined, BookOutlined, DashboardOutlined, LoginOutlined } from "@ant-design/icons";
+import { UserOutlined, LogoutOutlined, BookOutlined, DashboardOutlined, LoginOutlined, SunOutlined, MoonOutlined } from "@ant-design/icons";
+import { useTheme } from "../context/ThemeContext";
 import "./NavBar.css";
 
 export default function NavBar() {
   const { user, isAuthenticated, logout } = useAuth();
   const { bookings } = useLibrary();
+  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   // Find count of active bookings for students (e.g. pending, approved, issued)
-  const activeBookingsCount = bookings.filter(
+  const activeBookingsCount = bookings ? bookings.filter(
     (b) => ["pending", "approved", "issued"].includes(b.status)
-  ).length;
+  ).length : 0;
 
   const handleLogout = () => {
     logout();
@@ -22,7 +24,7 @@ export default function NavBar() {
 
   const userMenuItems = [
     {
-      key: "profile",
+      key: "profile-header",
       label: (
         <div className="user-profile-menu-header">
           <p className="user-menu-name">{user?.name}</p>
@@ -32,6 +34,16 @@ export default function NavBar() {
     },
     {
       type: "divider",
+    },
+    {
+      key: "profile",
+      label: <Link to="/profile">My Profile</Link>,
+      icon: <UserOutlined />,
+    },
+    user?.role === "student" && {
+      key: "student-dash",
+      label: <Link to="/student-dashboard">Dashboard</Link>,
+      icon: <DashboardOutlined />,
     },
     user?.role === "student" && {
       key: "my-bookings",
@@ -56,7 +68,7 @@ export default function NavBar() {
       <div className="navbar-container">
         <Link to="/" className="nav-brand">
           <span className="brand-icon">📚</span>
-          <span className="brand-name">Aetherius</span>
+          <span className="brand-name">Smart</span>
           <span className="brand-sub">Library</span>
         </Link>
 
@@ -85,6 +97,13 @@ export default function NavBar() {
         </nav>
 
         <div className="nav-actions">
+          <Button
+            type="text"
+            icon={isDark ? <SunOutlined style={{ color: "#f59e0b" }} /> : <MoonOutlined style={{ color: "#475569" }} />}
+            onClick={toggleTheme}
+            style={{ marginRight: 16, fontSize: "16px" }}
+            className="theme-toggle-btn"
+          />
           {isAuthenticated ? (
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
               <div className="user-profile-trigger">

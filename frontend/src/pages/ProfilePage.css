@@ -1,0 +1,98 @@
+.profile-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.profile-title {
+  font-weight: 800 !important;
+  margin-bottom: 0 !important;
+}
+
+.profile-sidebar-card {
+  box-shadow: var(--shadow-sm);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.profile-avatar-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.profile-sidebar-name {
+  font-weight: 800 !important;
+  margin-bottom: 0 !important;
+}
+
+.profile-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
+}
+
+.tag-librarian {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
+}
+
+.tag-student {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.profile-sidebar-info {
+  text-align: left;
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.info-icon {
+  font-size: 18px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.profile-overview-card {
+  box-shadow: var(--shadow-sm);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  min-height: 100%;
+}
+
+.profile-overview-card .ant-card-head {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mini-stat-card {
+  border: 1px solid var(--border-color);
+  background-color: #fafafa;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.mini-stat-card.blue {
+  border-top: 3px solid #3b82f6;
+}
+
+.mini-stat-card.green {
+  border-top: 3px solid #10b981;
+}
+
+.mini-stat-card.red {
+  border-top: 3px solid #ef4444;
+}
+
+.mini-stat-card.purple {
+  border-top: 3px solid #8b5cf6;
+}

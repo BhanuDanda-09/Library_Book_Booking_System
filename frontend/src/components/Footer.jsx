@@ -7,7 +7,7 @@ export default function Footer() {
     <footer className="library-footer">
       <div className="footer-content">
         <div className="footer-section brand-info">
-          <h3 className="footer-brand">📚 Aetherius Library</h3>
+          <h3 className="footer-brand">📚 Smart Library</h3>
           <p className="footer-desc">
             A modern, digital solution for reserving, borrowing, and exploring our rich book catalog. Join us in cultivating knowledge and sharing stories.
           </p>
@@ -29,7 +29,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="footer-bottom">
-        <p>&copy; {new Date().getFullYear()} Aetherius Library. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} Smart Library. All rights reserved.</p>
         <p className="footer-subtext">Built with React, Ant Design & MERN Stack</p>
       </div>
     </footer>
