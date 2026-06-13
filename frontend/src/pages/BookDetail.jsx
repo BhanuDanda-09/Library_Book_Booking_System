@@ -108,10 +108,11 @@ export default function BookDetail() {
   const isStudent = user?.role === "student";
 
   // Resolve cover image path
+  const BACKEND_URL = "https://library-book-booking-system.onrender.com";
   const getCoverUrl = (path) => {
     if (!path) return `https://placehold.co/300x420/6366f1/ffffff?text=${encodeURIComponent(book.title)}`;
     if (path.startsWith("/uploads")) {
-      return `http://localhost:5000${path}`;
+      return `${BACKEND_URL}${path}`;
     }
     return path;
   };

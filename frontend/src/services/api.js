@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "https://library-book-booking-system.onrender.com"
+  baseURL: "https://library-book-booking-system.onrender.com/api"
 });
 
 // Request interceptor to attach authorization token

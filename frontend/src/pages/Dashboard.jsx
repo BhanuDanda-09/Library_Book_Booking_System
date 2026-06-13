@@ -167,7 +167,7 @@ export default function Dashboard() {
       dataIndex: "coverImage",
       key: "coverImage",
       render: (path, record) => {
-        const coverUrl = path ? (path.startsWith("/uploads") ? `http://localhost:5000${path}` : path) : `https://placehold.co/40x55/6366f1/ffffff?text=Book`;
+        const coverUrl = path ? (path.startsWith("/uploads") ? `https://library-book-booking-system.onrender.com${path}` : path) : `https://placehold.co/40x55/6366f1/ffffff?text=Book`;
         return (
           <img
             src={coverUrl}

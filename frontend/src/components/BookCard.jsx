@@ -12,7 +12,7 @@ export default function BookCard({ book }) {
   const getCoverUrl = (path) => {
     if (!path) return `https://placehold.co/240x320/6366f1/ffffff?text=${encodeURIComponent(book.title)}`;
     if (path.startsWith("/uploads")) {
-      return `http://localhost:5000${path}`;
+      return `https://library-book-booking-system.onrender.com${path}`;
     }
     return path;
   };
