@@ -1,0 +1,62 @@
+.my-bookings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.bookings-page-header {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+}
+
+.bookings-title {
+  margin: 0 !important;
+  font-weight: 800 !important;
+  color: #0f172a;
+}
+
+.table-card {
+  box-shadow: var(--shadow-sm) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.bookings-table .ant-table-thead > tr > th {
+  background-color: #f8fafc !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.booking-book-link {
+  color: #1e293b;
+  transition: var(--transition-smooth);
+}
+
+.booking-book-link:hover {
+  color: var(--primary);
+}
+
+.empty-bookings-card {
+  text-align: center;
+  padding: 60px 40px;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--shadow-sm);
+  background: #ffffff !important;
+}
+
+.empty-icon-wrap {
+  font-size: 64px;
+  line-height: 1;
+}
+
+.bookings-loading-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 120px 0;
+}
