@@ -1,408 +1,422 @@
 /**
  * Library Management System — Database Seed Script
- * Run: node backend/seeds/seed.js
- *
- * Seeds: 15 categories, 100+ books, 25 users (2 admin), 200+ reservations,
- *        wishlist, notifications, activity logs
+ * Run: node seeds/seed.js  (from the backend folder)
+ * Seeds: 20 categories, 200+ books (real ISBNs), 23 users, 250 reservations
  */
-require('dotenv').config({ path: require('path').join(__dirname, '../../backend/.env') });
-
-const mongoose    = require('mongoose');
-const bcrypt      = require('bcryptjs');
-const dns         = require('dns');
-
-// Models
-const Book        = require('../models/Book');
-const User        = require('../models/User');
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const Book = require('../models/Book');
+const User = require('../models/User');
 const Reservation = require('../models/Reservation');
-const Category    = require('../models/Category');
+const Category = require('../models/Category');
 const Notification = require('../models/Notification');
 const ActivityLog = require('../models/ActivityLog');
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const daysAgo = (d) => new Date(Date.now() - d * 86400000);
-const daysFromNow = (d) => new Date(Date.now() + d * 86400000);
 
-// ── CATEGORIES ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { name: 'Programming',       icon: '💻', color: '#6366f1', description: 'Software development and programming languages' },
+  { name: 'Programming', icon: '💻', color: '#6366f1', description: 'Software development, algorithms, and programming languages' },
   { name: 'Artificial Intelligence', icon: '🤖', color: '#8b5cf6', description: 'AI, neural networks, and cognitive computing' },
-  { name: 'Machine Learning',  icon: '🧠', color: '#a855f7', description: 'Statistical learning and predictive modeling' },
-  { name: 'Data Science',      icon: '📊', color: '#3b82f6', description: 'Data analysis, visualization, and insights' },
-  { name: 'Web Development',   icon: '🌐', color: '#06b6d4', description: 'Frontend, backend, and full-stack web technologies' },
-  { name: 'Databases',         icon: '🗄️', color: '#14b8a6', description: 'Database design, SQL, NoSQL, and data modeling' },
-  { name: 'Networking',        icon: '🔗', color: '#22c55e', description: 'Computer networks, protocols, and infrastructure' },
-  { name: 'Cyber Security',    icon: '🔒', color: '#ef4444', description: 'Information security, ethical hacking, and cryptography' },
-  { name: 'Cloud Computing',   icon: '☁️', color: '#f59e0b', description: 'AWS, Azure, GCP, and distributed systems' },
-  { name: 'Mathematics',       icon: '📐', color: '#ec4899', description: 'Pure and applied mathematics, statistics' },
-  { name: 'Science',           icon: '🔬', color: '#10b981', description: 'Physics, chemistry, biology, and natural sciences' },
-  { name: 'Fiction',           icon: '📖', color: '#f97316', description: 'Novels, stories, and imaginative literature' },
-  { name: 'Non-Fiction',       icon: '📰', color: '#64748b', description: 'Factual books, biographies, and essays' },
-  { name: 'History',           icon: '🏛️', color: '#78716c', description: 'World history, civilizations, and historical events' },
-  { name: 'Philosophy',        icon: '🤔', color: '#84cc16', description: 'Ethics, logic, metaphysics, and epistemology' },
+  { name: 'Machine Learning', icon: '🧠', color: '#a855f7', description: 'Statistical learning and predictive modeling' },
+  { name: 'Data Science', icon: '📊', color: '#3b82f6', description: 'Data analysis, visualization, and insights' },
+  { name: 'Web Development', icon: '🌐', color: '#06b6d4', description: 'Frontend, backend, and full-stack web technologies' },
+  { name: 'Databases', icon: '🗄️', color: '#14b8a6', description: 'Database design, SQL, NoSQL, and data modeling' },
+  { name: 'Networking', icon: '🔗', color: '#22c55e', description: 'Computer networks, protocols, and infrastructure' },
+  { name: 'Cyber Security', icon: '🔒', color: '#ef4444', description: 'Information security, ethical hacking, and cryptography' },
+  { name: 'Cloud Computing', icon: '☁️', color: '#f59e0b', description: 'AWS, Azure, GCP, DevOps, Docker, Kubernetes' },
+  { name: 'Mathematics', icon: '📐', color: '#ec4899', description: 'Pure and applied mathematics, statistics, discrete math' },
+  { name: 'Science', icon: '🔬', color: '#10b981', description: 'Physics, chemistry, biology, and natural sciences' },
+  { name: 'Engineering', icon: '⚙️', color: '#f97316', description: 'Electrical, mechanical, civil, and electronics engineering' },
+  { name: 'Management', icon: '📈', color: '#84cc16', description: 'Business, economics, finance, and entrepreneurship' },
+  { name: 'Fiction', icon: '📖', color: '#fb923c', description: 'Novels, stories, and imaginative literature' },
+  { name: 'Non-Fiction', icon: '📰', color: '#64748b', description: 'Factual books, biographies, and self-help' },
+  { name: 'History', icon: '🏛️', color: '#78716c', description: 'World history, civilizations, and historical events' },
+  { name: 'Philosophy', icon: '🤔', color: '#84cc16', description: 'Ethics, logic, metaphysics, and epistemology' },
+  { name: 'Competitive Exams', icon: '🎯', color: '#0ea5e9', description: 'GATE, GRE, CAT, UPSC, aptitude, and reasoning' },
+  { name: 'Literature', icon: '✍️', color: '#d946ef', description: 'Classic and modern literary works, poetry, plays' },
+  { name: 'Psychology', icon: '🧩', color: '#fb923c', description: 'Human behavior, cognition, and mental health' },
 ];
 
-// ── BOOKS DATA ────────────────────────────────────────────────────────────────
 const BOOKS_DATA = [
-  // Programming
-  { title: 'Clean Code', author: 'Robert C. Martin', isbn: '978-0-13-235088-4', category: 'Programming', publisher: 'Prentice Hall', publishedYear: 2008, language: 'English', description: 'A handbook of agile software craftsmanship covering best practices for writing clean, readable, maintainable code.', edition: '1st', shelfLocation: 'A1-01', totalCopies: 5 },
-  { title: 'The Pragmatic Programmer', author: 'David Thomas, Andrew Hunt', isbn: '978-0-13-595705-9', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2019, language: 'English', description: 'Your journey to mastery — a guide to becoming a better programmer.', edition: '2nd', shelfLocation: 'A1-02', totalCopies: 4 },
-  { title: 'Design Patterns', author: 'Gang of Four', isbn: '978-0-20-163361-5', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 1994, language: 'English', description: 'Elements of reusable object-oriented software — the classic patterns book.', edition: '1st', shelfLocation: 'A1-03', totalCopies: 3 },
-  { title: 'Refactoring', author: 'Martin Fowler', isbn: '978-0-13-468599-1', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2018, language: 'English', description: 'Improving the design of existing code through safe, systematic refactoring.', edition: '2nd', shelfLocation: 'A1-04', totalCopies: 4 },
-  { title: 'Introduction to Algorithms', author: 'Cormen, Leiserson, Rivest, Stein', isbn: '978-0-26-204630-5', category: 'Programming', publisher: 'MIT Press', publishedYear: 2009, language: 'English', description: 'The comprehensive textbook on algorithms and data structures.', edition: '3rd', shelfLocation: 'A1-05', totalCopies: 6 },
-  { title: 'You Don\'t Know JS', author: 'Kyle Simpson', isbn: '978-1-49-192202-3', category: 'Programming', publisher: "O'Reilly", publishedYear: 2015, language: 'English', description: 'A deep dive into the core mechanisms of JavaScript.', edition: '1st', shelfLocation: 'A1-06', totalCopies: 4 },
-  { title: 'The Art of Computer Programming', author: 'Donald Knuth', isbn: '978-0-20-148541-7', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2011, language: 'English', description: 'The definitive multi-volume work on fundamental algorithms.', edition: '4th', shelfLocation: 'A1-07', totalCopies: 2 },
-  { title: 'Python Crash Course', author: 'Eric Matthes', isbn: '978-1-71-850072-3', category: 'Programming', publisher: 'No Starch Press', publishedYear: 2023, language: 'English', description: 'A hands-on, project-based introduction to Python programming.', edition: '3rd', shelfLocation: 'A1-08', totalCopies: 7 },
-
-  // AI
-  { title: 'Artificial Intelligence: A Modern Approach', author: 'Stuart Russell, Peter Norvig', isbn: '978-0-13-604259-4', category: 'Artificial Intelligence', publisher: 'Pearson', publishedYear: 2020, language: 'English', description: 'The definitive textbook on artificial intelligence.', edition: '4th', shelfLocation: 'B1-01', totalCopies: 5 },
-  { title: 'Grokking Artificial Intelligence Algorithms', author: 'Rishal Hurbans', isbn: '978-1-61-729463-0', category: 'Artificial Intelligence', publisher: 'Manning', publishedYear: 2020, language: 'English', description: 'An illustrated, friendly guide to AI algorithms.', edition: '1st', shelfLocation: 'B1-02', totalCopies: 4 },
-  { title: 'Life 3.0: Being Human in the Age of AI', author: 'Max Tegmark', isbn: '978-1-10-198871-3', category: 'Artificial Intelligence', publisher: 'Knopf', publishedYear: 2017, language: 'English', description: 'Exploring the future of AI and its implications for humanity.', edition: '1st', shelfLocation: 'B1-03', totalCopies: 3 },
-  { title: 'Human Compatible', author: 'Stuart Russell', isbn: '978-0-52-555551-5', category: 'Artificial Intelligence', publisher: 'Viking', publishedYear: 2019, language: 'English', description: 'Artificial intelligence and the problem of control.', edition: '1st', shelfLocation: 'B1-04', totalCopies: 3 },
-
-  // Machine Learning
-  { title: 'Hands-On Machine Learning', author: 'Aurélien Géron', isbn: '978-1-09-812597-4', category: 'Machine Learning', publisher: "O'Reilly", publishedYear: 2022, language: 'English', description: 'Concepts, tools, and techniques to build intelligent systems with Scikit-Learn and TensorFlow.', edition: '3rd', shelfLocation: 'C1-01', totalCopies: 6 },
-  { title: 'Pattern Recognition and Machine Learning', author: 'Christopher Bishop', isbn: '978-0-38-731073-2', category: 'Machine Learning', publisher: 'Springer', publishedYear: 2006, language: 'English', description: 'A comprehensive textbook on pattern recognition and machine learning.', edition: '1st', shelfLocation: 'C1-02', totalCopies: 3 },
-  { title: 'Deep Learning', author: 'Ian Goodfellow', isbn: '978-0-26-203561-3', category: 'Machine Learning', publisher: 'MIT Press', publishedYear: 2016, language: 'English', description: 'The foundational textbook on deep learning theory and practice.', edition: '1st', shelfLocation: 'C1-03', totalCopies: 5 },
-  { title: 'Machine Learning Yearning', author: 'Andrew Ng', isbn: '978-0-00-000001-0', category: 'Machine Learning', publisher: 'deeplearning.ai', publishedYear: 2018, language: 'English', description: 'Technical strategy for AI engineers — how to structure ML projects.', edition: '1st', shelfLocation: 'C1-04', totalCopies: 4 },
-  { title: 'The Hundred-Page Machine Learning Book', author: 'Andriy Burkov', isbn: '978-1-99-998585-6', category: 'Machine Learning', publisher: 'Andriy Burkov', publishedYear: 2019, language: 'English', description: 'A concise, comprehensive guide to machine learning.', edition: '1st', shelfLocation: 'C1-05', totalCopies: 5 },
-
-  // Data Science
-  { title: 'Python for Data Analysis', author: 'Wes McKinney', isbn: '978-1-09-181037-9', category: 'Data Science', publisher: "O'Reilly", publishedYear: 2022, language: 'English', description: 'Data wrangling with pandas, NumPy, and Jupyter.', edition: '3rd', shelfLocation: 'D1-01', totalCopies: 6 },
-  { title: 'Storytelling with Data', author: 'Cole Nussbaumer Knaflic', isbn: '978-1-11-921225-7', category: 'Data Science', publisher: 'Wiley', publishedYear: 2015, language: 'English', description: 'A data visualization guide for business professionals.', edition: '1st', shelfLocation: 'D1-02', totalCopies: 4 },
-  { title: 'Data Science from Scratch', author: 'Joel Grus', isbn: '978-1-49-920142-1', category: 'Data Science', publisher: "O'Reilly", publishedYear: 2019, language: 'English', description: 'First principles with Python — build data science tools from the ground up.', edition: '2nd', shelfLocation: 'D1-03', totalCopies: 5 },
-  { title: 'The Data Warehouse Toolkit', author: 'Ralph Kimball, Margy Ross', isbn: '978-1-11-853080-7', category: 'Data Science', publisher: 'Wiley', publishedYear: 2013, language: 'English', description: 'The definitive guide to dimensional modeling for data warehouses.', edition: '3rd', shelfLocation: 'D1-04', totalCopies: 3 },
-
-  // Web Development
-  { title: 'HTML and CSS: Design and Build Websites', author: 'Jon Duckett', isbn: '978-1-11-803701-3', category: 'Web Development', publisher: 'Wiley', publishedYear: 2011, language: 'English', description: 'A visually stunning introduction to web design with HTML5 and CSS3.', edition: '1st', shelfLocation: 'E1-01', totalCopies: 8 },
-  { title: 'JavaScript: The Good Parts', author: 'Douglas Crockford', isbn: '978-0-59-651774-8', category: 'Web Development', publisher: "O'Reilly", publishedYear: 2008, language: 'English', description: 'The subset of JavaScript that makes it a truly outstanding language.', edition: '1st', shelfLocation: 'E1-02', totalCopies: 5 },
-  { title: 'Learning React', author: 'Alex Banks, Eve Porcello', isbn: '978-1-49-205854-0', category: 'Web Development', publisher: "O'Reilly", publishedYear: 2020, language: 'English', description: 'Functional web development with React and Redux.', edition: '2nd', shelfLocation: 'E1-03', totalCopies: 6 },
-  { title: 'Node.js Design Patterns', author: 'Mario Casciaro, Luciano Mammino', isbn: '978-1-83-921610-6', category: 'Web Development', publisher: 'Packt', publishedYear: 2020, language: 'English', description: 'Design and implement production-grade Node.js applications.', edition: '3rd', shelfLocation: 'E1-04', totalCopies: 4 },
-  { title: 'CSS: The Definitive Guide', author: 'Eric Meyer, Estelle Weyl', isbn: '978-1-09-810050-3', category: 'Web Development', publisher: "O'Reilly", publishedYear: 2022, language: 'English', description: 'Visual presentation of web pages with CSS.', edition: '5th', shelfLocation: 'E1-05', totalCopies: 4 },
-
-  // Databases
-  { title: 'Learning SQL', author: 'Alan Beaulieu', isbn: '978-1-49-203248-9', category: 'Databases', publisher: "O'Reilly", publishedYear: 2020, language: 'English', description: 'Master SQL fundamentals — generate, manipulate, and retrieve data.', edition: '3rd', shelfLocation: 'F1-01', totalCopies: 6 },
-  { title: 'MongoDB: The Definitive Guide', author: 'Shannon Bradshaw, Eoin Brazil', isbn: '978-1-49-195470-3', category: 'Databases', publisher: "O'Reilly", publishedYear: 2019, language: 'English', description: 'Powerful and scalable data storage with MongoDB.', edition: '3rd', shelfLocation: 'F1-02', totalCopies: 5 },
-  { title: 'Designing Data-Intensive Applications', author: 'Martin Kleppmann', isbn: '978-1-44-937332-0', category: 'Databases', publisher: "O'Reilly", publishedYear: 2017, language: 'English', description: 'The big ideas behind reliable, scalable, and maintainable systems.', edition: '1st', shelfLocation: 'F1-03', totalCopies: 4 },
-  { title: 'PostgreSQL: Up and Running', author: 'Regina Obe, Leo Hsu', isbn: '978-1-49-202319-7', category: 'Databases', publisher: "O'Reilly", publishedYear: 2017, language: 'English', description: 'A practical guide to the advanced open source database.', edition: '3rd', shelfLocation: 'F1-04', totalCopies: 4 },
-
-  // Networking
-  { title: 'Computer Networks', author: 'Andrew Tanenbaum', isbn: '978-0-13-212695-3', category: 'Networking', publisher: 'Pearson', publishedYear: 2010, language: 'English', description: 'A top-down approach to understanding computer networks.', edition: '5th', shelfLocation: 'G1-01', totalCopies: 5 },
-  { title: 'TCP/IP Illustrated', author: 'W. Richard Stevens', isbn: '978-0-32-163618-4', category: 'Networking', publisher: 'Addison-Wesley', publishedYear: 2011, language: 'English', description: 'The protocols of the internet explained in depth.', edition: '2nd', shelfLocation: 'G1-02', totalCopies: 3 },
-  { title: 'Network Security Essentials', author: 'William Stallings', isbn: '978-0-13-452733-9', category: 'Networking', publisher: 'Pearson', publishedYear: 2017, language: 'English', description: 'Applications and standards for network security.', edition: '6th', shelfLocation: 'G1-03', totalCopies: 4 },
-
-  // Cyber Security
-  { title: 'The Web Application Hacker\'s Handbook', author: 'Dafydd Stuttard, Marcus Pinto', isbn: '978-1-11-802647-5', category: 'Cyber Security', publisher: 'Wiley', publishedYear: 2011, language: 'English', description: 'Finding and exploiting security flaws in web applications.', edition: '2nd', shelfLocation: 'H1-01', totalCopies: 4 },
-  { title: 'Hacking: The Art of Exploitation', author: 'Jon Erickson', isbn: '978-1-59-327144-2', category: 'Cyber Security', publisher: 'No Starch Press', publishedYear: 2008, language: 'English', description: 'Understanding hacking from the ground up.', edition: '2nd', shelfLocation: 'H1-02', totalCopies: 3 },
-  { title: 'Cybersecurity Essentials', author: 'Charles Brooks', isbn: '978-1-11-939454-4', category: 'Cyber Security', publisher: 'Wiley', publishedYear: 2018, language: 'English', description: 'An introduction to cybersecurity concepts and practices.', edition: '1st', shelfLocation: 'H1-03', totalCopies: 5 },
-  { title: 'Cryptography and Network Security', author: 'William Stallings', isbn: '978-0-13-476326-2', category: 'Cyber Security', publisher: 'Pearson', publishedYear: 2019, language: 'English', description: 'Principles and practice of cryptography and network security.', edition: '8th', shelfLocation: 'H1-04', totalCopies: 4 },
-
-  // Cloud Computing
-  { title: 'Cloud Computing: Concepts, Technology & Architecture', author: 'Thomas Erl', isbn: '978-0-13-338752-7', category: 'Cloud Computing', publisher: 'Prentice Hall', publishedYear: 2013, language: 'English', description: 'The comprehensive reference guide to cloud computing.', edition: '1st', shelfLocation: 'I1-01', totalCopies: 4 },
-  { title: 'AWS in Action', author: 'Michael Wittig, Andreas Wittig', isbn: '978-1-61-729545-3', category: 'Cloud Computing', publisher: 'Manning', publishedYear: 2018, language: 'English', description: 'A guide to running web applications on Amazon Web Services.', edition: '2nd', shelfLocation: 'I1-02', totalCopies: 5 },
-  { title: 'Kubernetes in Action', author: 'Marko Luksa', isbn: '978-1-61-729372-5', category: 'Cloud Computing', publisher: 'Manning', publishedYear: 2018, language: 'English', description: 'Full understanding of Kubernetes orchestration.', edition: '1st', shelfLocation: 'I1-03', totalCopies: 4 },
-
-  // Mathematics
-  { title: 'Mathematics for Machine Learning', author: 'Marc Peter Deisenroth', isbn: '978-1-10-847004-9', category: 'Mathematics', publisher: 'Cambridge University Press', publishedYear: 2020, language: 'English', description: 'The mathematical foundations needed for machine learning.', edition: '1st', shelfLocation: 'J1-01', totalCopies: 5 },
-  { title: 'Discrete Mathematics and Its Applications', author: 'Kenneth Rosen', isbn: '978-0-07-338309-5', category: 'Mathematics', publisher: 'McGraw-Hill', publishedYear: 2018, language: 'English', description: 'Covers logic, sets, combinatorics, graph theory, and more.', edition: '8th', shelfLocation: 'J1-02', totalCopies: 6 },
-  { title: 'Linear Algebra Done Right', author: 'Sheldon Axler', isbn: '978-3-31-911079-4', category: 'Mathematics', publisher: 'Springer', publishedYear: 2015, language: 'English', description: 'A fresh approach to linear algebra — vectors, matrices, and transformations.', edition: '3rd', shelfLocation: 'J1-03', totalCopies: 4 },
-  { title: 'Calculus', author: 'James Stewart', isbn: '978-1-28-557095-3', category: 'Mathematics', publisher: 'Cengage', publishedYear: 2015, language: 'English', description: 'Early transcendentals — the gold standard calculus textbook.', edition: '8th', shelfLocation: 'J1-04', totalCopies: 8 },
-
-  // Science
-  { title: 'A Brief History of Time', author: 'Stephen Hawking', isbn: '978-0-55-305340-1', category: 'Science', publisher: 'Bantam', publishedYear: 1998, language: 'English', description: 'From the Big Bang to black holes — science for everyone.', edition: '10th', shelfLocation: 'K1-01', totalCopies: 6 },
-  { title: 'The Selfish Gene', author: 'Richard Dawkins', isbn: '978-0-19-929114-4', category: 'Science', publisher: 'Oxford University Press', publishedYear: 2006, language: 'English', description: 'A landmark work in evolutionary biology.', edition: '30th', shelfLocation: 'K1-02', totalCopies: 4 },
-  { title: 'The Structure of Scientific Revolutions', author: 'Thomas Kuhn', isbn: '978-0-22-645812-0', category: 'Science', publisher: 'University of Chicago Press', publishedYear: 2012, language: 'English', description: 'A landmark work in the philosophy and history of science.', edition: '4th', shelfLocation: 'K1-03', totalCopies: 3 },
-  { title: 'Cosmos', author: 'Carl Sagan', isbn: '978-0-34-533992-8', category: 'Science', publisher: 'Ballantine Books', publishedYear: 2013, language: 'English', description: 'A personal voyage through the universe — science and humanity.', edition: 'Anniversary', shelfLocation: 'K1-04', totalCopies: 5 },
-  { title: 'The Gene: An Intimate History', author: 'Siddhartha Mukherjee', isbn: '978-1-47-676940-7', category: 'Science', publisher: 'Scribner', publishedYear: 2016, language: 'English', description: 'The definitive history of the gene and genetics.', edition: '1st', shelfLocation: 'K1-05', totalCopies: 4 },
-
-  // Fiction
-  { title: '1984', author: 'George Orwell', isbn: '978-0-45-152493-5', category: 'Fiction', publisher: 'Signet Classic', publishedYear: 1977, language: 'English', description: 'A dystopian social science fiction novel set in a totalitarian society.', edition: 'Classic', shelfLocation: 'L1-01', totalCopies: 8 },
-  { title: 'The Hitchhiker\'s Guide to the Galaxy', author: 'Douglas Adams', isbn: '978-0-34-539180-3', category: 'Fiction', publisher: 'Del Rey Books', publishedYear: 1995, language: 'English', description: 'A comedic science fiction series about the universe and everything.', edition: 'Classic', shelfLocation: 'L1-02', totalCopies: 6 },
-  { title: 'Dune', author: 'Frank Herbert', isbn: '978-0-44-101359-0', category: 'Fiction', publisher: 'Ace Books', publishedYear: 1990, language: 'English', description: 'The epic science fiction masterpiece about desert politics, ecology, and power.', edition: 'Classic', shelfLocation: 'L1-03', totalCopies: 5 },
-  { title: 'Ender\'s Game', author: 'Orson Scott Card', isbn: '978-0-81-250533-7', category: 'Fiction', publisher: 'Tor Books', publishedYear: 1994, language: 'English', description: 'A brilliant child trains to become a military commander in a futuristic world.', edition: 'Revised', shelfLocation: 'L1-04', totalCopies: 6 },
-  { title: 'The Martian', author: 'Andy Weir', isbn: '978-0-80-413902-1', category: 'Fiction', publisher: 'Crown', publishedYear: 2014, language: 'English', description: 'An astronaut stranded on Mars must survive using science and ingenuity.', edition: '1st', shelfLocation: 'L1-05', totalCopies: 7 },
-  { title: 'Brave New World', author: 'Aldous Huxley', isbn: '978-0-06-085052-4', category: 'Fiction', publisher: 'Harper Perennial', publishedYear: 2006, language: 'English', description: 'A dystopian novel set in a futuristic World State.', edition: 'Classic', shelfLocation: 'L1-06', totalCopies: 5 },
-  { title: 'Neuromancer', author: 'William Gibson', isbn: '978-0-44-151777-3', category: 'Fiction', publisher: 'Ace Books', publishedYear: 2000, language: 'English', description: 'The seminal cyberpunk novel that defined the genre.', edition: 'Classic', shelfLocation: 'L1-07', totalCopies: 4 },
-  { title: 'Project Hail Mary', author: 'Andy Weir', isbn: '978-0-59-313520-4', category: 'Fiction', publisher: 'Ballantine Books', publishedYear: 2021, language: 'English', description: 'A lone astronaut must save the Earth from disaster.', edition: '1st', shelfLocation: 'L1-08', totalCopies: 6 },
-
-  // Non-Fiction
-  { title: 'Thinking, Fast and Slow', author: 'Daniel Kahneman', isbn: '978-0-37-453355-7', category: 'Non-Fiction', publisher: 'Farrar, Straus and Giroux', publishedYear: 2011, language: 'English', description: 'Kahneman explores the two systems that drive the way we think.', edition: '1st', shelfLocation: 'M1-01', totalCopies: 6 },
-  { title: 'Sapiens: A Brief History of Humankind', author: 'Yuval Noah Harari', isbn: '978-0-06-231609-7', category: 'Non-Fiction', publisher: 'Harper', publishedYear: 2015, language: 'English', description: 'An exploration of the history of Homo sapiens and our impact on the world.', edition: '1st', shelfLocation: 'M1-02', totalCopies: 8 },
-  { title: 'The Power of Habit', author: 'Charles Duhigg', isbn: '978-0-81-298160-2', category: 'Non-Fiction', publisher: 'Random House', publishedYear: 2012, language: 'English', description: 'Why we do what we do in life and business.', edition: '1st', shelfLocation: 'M1-03', totalCopies: 5 },
-  { title: 'Atomic Habits', author: 'James Clear', isbn: '978-0-73-521129-2', category: 'Non-Fiction', publisher: 'Avery', publishedYear: 2018, language: 'English', description: 'An easy and proven way to build good habits and break bad ones.', edition: '1st', shelfLocation: 'M1-04', totalCopies: 9 },
-  { title: 'Zero to One', author: 'Peter Thiel, Blake Masters', isbn: '978-0-80-413930-4', category: 'Non-Fiction', publisher: 'Crown Business', publishedYear: 2014, language: 'English', description: 'Notes on startups, or how to build the future.', edition: '1st', shelfLocation: 'M1-05', totalCopies: 5 },
-  { title: 'Deep Work', author: 'Cal Newport', isbn: '978-1-45-554878-8', category: 'Non-Fiction', publisher: 'Grand Central Publishing', publishedYear: 2016, language: 'English', description: 'Rules for focused success in a distracted world.', edition: '1st', shelfLocation: 'M1-06', totalCopies: 6 },
-  { title: 'The Lean Startup', author: 'Eric Ries', isbn: '978-0-30-788891-7', category: 'Non-Fiction', publisher: 'Crown Business', publishedYear: 2011, language: 'English', description: 'How today\'s entrepreneurs use continuous innovation to create businesses.', edition: '1st', shelfLocation: 'M1-07', totalCopies: 5 },
-
-  // History
-  { title: 'Guns, Germs, and Steel', author: 'Jared Diamond', isbn: '978-0-39-331755-8', category: 'History', publisher: 'Norton', publishedYear: 1999, language: 'English', description: 'The fates of human societies — why some civilizations conquered others.', edition: '1st', shelfLocation: 'N1-01', totalCopies: 5 },
-  { title: 'The Rise and Fall of the Third Reich', author: 'William Shirer', isbn: '978-1-45-167800-1', category: 'History', publisher: 'Simon & Schuster', publishedYear: 2011, language: 'English', description: 'A history of Nazi Germany — the comprehensive account.', edition: 'Classic', shelfLocation: 'N1-02', totalCopies: 3 },
-  { title: 'Homo Deus', author: 'Yuval Noah Harari', isbn: '978-0-06-246431-6', category: 'History', publisher: 'Harper', publishedYear: 2017, language: 'English', description: 'A brief history of tomorrow — the future of humanity.', edition: '1st', shelfLocation: 'N1-03', totalCopies: 5 },
-  { title: 'The Silk Roads', author: 'Peter Frankopan', isbn: '978-1-10-185976-2', category: 'History', publisher: 'Knopf', publishedYear: 2015, language: 'English', description: 'A new history of the world through the lens of the ancient trade routes.', edition: '1st', shelfLocation: 'N1-04', totalCopies: 4 },
-  { title: 'A People\'s History of the United States', author: 'Howard Zinn', isbn: '978-0-06-083865-2', category: 'History', publisher: 'Harper Perennial', publishedYear: 2005, language: 'English', description: 'American history from the perspective of ordinary people.', edition: 'Modern Classic', shelfLocation: 'N1-05', totalCopies: 4 },
-
-  // Philosophy
-  { title: 'Meditations', author: 'Marcus Aurelius', isbn: '978-0-14-044140-6', category: 'Philosophy', publisher: 'Penguin Classics', publishedYear: 2006, language: 'English', description: 'The reflections of Roman Emperor Marcus Aurelius — Stoic philosophy.', edition: 'Classics', shelfLocation: 'O1-01', totalCopies: 6 },
-  { title: 'The Republic', author: 'Plato', isbn: '978-0-19-953700-5', category: 'Philosophy', publisher: 'Oxford University Press', publishedYear: 2008, language: 'English', description: 'Plato\'s famous dialogue on justice, society, and the nature of the ideal state.', edition: 'Classics', shelfLocation: 'O1-02', totalCopies: 4 },
-  { title: 'Nicomachean Ethics', author: 'Aristotle', isbn: '978-0-87-220048-8', category: 'Philosophy', publisher: 'Hackett', publishedYear: 1999, language: 'English', description: 'Aristotle\'s systematic study of virtue, pleasure, and the good life.', edition: 'Revised', shelfLocation: 'O1-03', totalCopies: 3 },
-  { title: 'Being and Time', author: 'Martin Heidegger', isbn: '978-0-06-090352-2', category: 'Philosophy', publisher: 'Harper Perennial', publishedYear: 2008, language: 'English', description: 'Heidegger\'s magnum opus on the nature of being and existence.', edition: 'Classic', shelfLocation: 'O1-04', totalCopies: 3 },
-  { title: 'The Problems of Philosophy', author: 'Bertrand Russell', isbn: '978-0-19-888018-5', category: 'Philosophy', publisher: 'Oxford University Press', publishedYear: 2001, language: 'English', description: 'An accessible introduction to the central questions of philosophy.', edition: 'Classic', shelfLocation: 'O1-05', totalCopies: 4 },
-
-  // Additional Programming & Web
-  { title: 'Eloquent JavaScript', author: 'Marijn Haverbeke', isbn: '978-1-59-327584-6', category: 'Programming', publisher: 'No Starch Press', publishedYear: 2018, language: 'English', description: 'A modern introduction to programming with JavaScript.', edition: '3rd', shelfLocation: 'A2-01', totalCopies: 5 },
-  { title: 'Head First Design Patterns', author: 'Eric Freeman, Elisabeth Robson', isbn: '978-0-59-600712-6', category: 'Programming', publisher: "O'Reilly", publishedYear: 2021, language: 'English', description: 'A brain-friendly guide to design patterns.', edition: '2nd', shelfLocation: 'A2-02', totalCopies: 4 },
-  { title: 'Structure and Interpretation of Computer Programs', author: 'Abelson, Sussman', isbn: '978-0-26-251087-5', category: 'Programming', publisher: 'MIT Press', publishedYear: 1996, language: 'English', description: 'The classic MIT textbook on computer programming fundamentals.', edition: '2nd', shelfLocation: 'A2-03', totalCopies: 3 },
-  { title: 'TypeScript in 50 Lessons', author: 'Stefan Baumgartner', isbn: '978-3-94-558019-3', category: 'Web Development', publisher: 'Smashing Magazine', publishedYear: 2020, language: 'English', description: 'Practical TypeScript — from basics to advanced types.', edition: '1st', shelfLocation: 'E2-01', totalCopies: 4 },
-  { title: 'Full Stack React', author: 'Anthony Accomazzo', isbn: '978-0-99-174571-0', category: 'Web Development', publisher: 'Fullstack.io', publishedYear: 2017, language: 'English', description: 'The complete guide to ReactJS and friends.', edition: '1st', shelfLocation: 'E2-02', totalCopies: 4 },
-  { title: 'Docker in Practice', author: 'Ian Miell, Aidan Hobson Sayers', isbn: '978-1-61-729732-7', category: 'Cloud Computing', publisher: 'Manning', publishedYear: 2019, language: 'English', description: '100+ techniques for real-world Docker usage.', edition: '2nd', shelfLocation: 'I2-01', totalCopies: 4 },
-  { title: 'Site Reliability Engineering', author: 'Niall Murphy, Betsy Beyer', isbn: '978-1-49-192912-1', category: 'Cloud Computing', publisher: "O'Reilly", publishedYear: 2016, language: 'English', description: 'How Google runs production systems at scale.', edition: '1st', shelfLocation: 'I2-02', totalCopies: 3 },
-  { title: 'The Feynman Lectures on Physics', author: 'Richard Feynman', isbn: '978-0-46-502304-2', category: 'Science', publisher: 'Basic Books', publishedYear: 2011, language: 'English', description: 'The classic physics lecture series by Nobel laureate Richard Feynman.', edition: 'Millennium', shelfLocation: 'K2-01', totalCopies: 3 },
-  { title: 'Thinking in Systems', author: 'Donella Meadows', isbn: '978-1-60-358153-4', category: 'Non-Fiction', publisher: 'Chelsea Green', publishedYear: 2008, language: 'English', description: 'A primer on systems thinking and systems dynamics.', edition: '1st', shelfLocation: 'M2-01', totalCopies: 4 },
-  { title: 'The Phoenix Project', author: 'Gene Kim, Kevin Behr', isbn: '978-1-94-278801-5', category: 'Non-Fiction', publisher: 'IT Revolution', publishedYear: 2018, language: 'English', description: 'A novel about IT, DevOps, and helping your business win.', edition: '5th', shelfLocation: 'M2-02', totalCopies: 5 },
-  { title: 'Operating System Concepts', author: 'Abraham Silberschatz', isbn: '978-1-11-906333-9', category: 'Programming', publisher: 'Wiley', publishedYear: 2018, language: 'English', description: 'The definitive textbook on operating systems — "the dinosaur book".', edition: '10th', shelfLocation: 'A2-04', totalCopies: 6 },
-  { title: 'Computer Organization and Design', author: 'David Patterson, John Hennessy', isbn: '978-0-12-820331-6', category: 'Programming', publisher: 'Morgan Kaufmann', publishedYear: 2020, language: 'English', description: 'The hardware/software interface — RISC-V edition.', edition: '5th', shelfLocation: 'A2-05', totalCopies: 4 },
-  { title: 'Natural Language Processing with Python', author: 'Bird, Klein, Loper', isbn: '978-0-59-651649-9', category: 'Artificial Intelligence', publisher: "O'Reilly", publishedYear: 2009, language: 'English', description: 'Analyzing text with the Natural Language Toolkit.', edition: '1st', shelfLocation: 'B2-01', totalCopies: 4 },
-  { title: 'Reinforcement Learning', author: 'Richard Sutton, Andrew Barto', isbn: '978-0-26-239326-4', category: 'Machine Learning', publisher: 'MIT Press', publishedYear: 2018, language: 'English', description: 'An introduction to reinforcement learning — from Sutton and Barto.', edition: '2nd', shelfLocation: 'C2-01', totalCopies: 4 },
+  // ── PROGRAMMING ─────────────────────────────────────────────────────────────
+  { title: 'Clean Code', subtitle: 'A Handbook of Agile Software Craftsmanship', author: 'Robert C. Martin', isbn: '9780132350884', category: 'Programming', publisher: 'Prentice Hall', publishedYear: 2008, edition: '1st', shelfLocation: 'A1-01', totalCopies: 5, description: 'A must-read for every developer on writing readable, maintainable code.' },
+  { title: 'Clean Architecture', subtitle: "A Craftsman's Guide to Software Structure and Design", author: 'Robert C. Martin', isbn: '9780134494166', category: 'Programming', publisher: 'Prentice Hall', publishedYear: 2017, edition: '1st', shelfLocation: 'A1-02', totalCopies: 4, description: 'Building clean software architecture using SOLID principles and architectural patterns.' },
+  { title: 'The Pragmatic Programmer', subtitle: 'Your Journey to Mastery', author: 'David Thomas, Andrew Hunt', isbn: '9780135957059', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2019, edition: '2nd', shelfLocation: 'A1-03', totalCopies: 4, description: 'Cutting-edge approaches to programming for modern software developers.' },
+  { title: 'Code Complete', subtitle: 'A Practical Handbook of Software Construction', author: 'Steve McConnell', isbn: '9780735619678', category: 'Programming', publisher: 'Microsoft Press', publishedYear: 2004, edition: '2nd', shelfLocation: 'A1-04', totalCopies: 3, description: 'The definitive guide to software construction and software quality.' },
+  { title: 'Design Patterns', subtitle: 'Elements of Reusable Object-Oriented Software', author: 'Gang of Four', isbn: '9780201633610', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 1994, edition: '1st', shelfLocation: 'A1-05', totalCopies: 3, description: 'The classic patterns book — 23 foundational design patterns in OO software design.' },
+  { title: 'Refactoring', subtitle: 'Improving the Design of Existing Code', author: 'Martin Fowler', isbn: '9780134757599', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2018, edition: '2nd', shelfLocation: 'A1-06', totalCopies: 4, description: 'A systematic guide to improving existing code through disciplined refactoring techniques.' },
+  { title: 'Introduction to Algorithms', subtitle: 'CLRS', author: 'Cormen, Leiserson, Rivest, Stein', isbn: '9780262046305', category: 'Programming', publisher: 'MIT Press', publishedYear: 2022, edition: '4th', shelfLocation: 'A1-07', totalCopies: 6, description: 'The comprehensive algorithms textbook — from sorting to graph algorithms, DP, and NP-completeness.' },
+  { title: 'Algorithms', subtitle: 'Fourth Edition', author: 'Robert Sedgewick, Kevin Wayne', isbn: '9780321573513', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2011, edition: '4th', shelfLocation: 'A1-08', totalCopies: 5, description: 'A comprehensive survey of important algorithms and data structures in Java.' },
+  { title: 'Head First Design Patterns', subtitle: 'Building Extensible OO Software', author: 'Eric Freeman, Elisabeth Robson', isbn: '9780596007126', category: 'Programming', publisher: "O'Reilly", publishedYear: 2021, edition: '2nd', shelfLocation: 'A1-09', totalCopies: 4, description: 'A brain-friendly guide to design patterns with real-world examples.' },
+  { title: 'Structure and Interpretation of Computer Programs', subtitle: 'SICP', author: 'Harold Abelson, Gerald Sussman', isbn: '9780262510875', category: 'Programming', publisher: 'MIT Press', publishedYear: 1996, edition: '2nd', shelfLocation: 'A1-10', totalCopies: 3, description: 'The classic MIT textbook on computer programming using Scheme.' },
+  { title: 'The C Programming Language', subtitle: 'K&R', author: 'Brian Kernighan, Dennis Ritchie', isbn: '9780131103627', category: 'Programming', publisher: 'Prentice Hall', publishedYear: 1988, edition: '2nd', shelfLocation: 'A2-01', totalCopies: 5, description: 'The original C language reference by its creators — concise, elegant, and timeless.' },
+  { title: 'C++ Primer', subtitle: 'Fifth Edition', author: 'Stanley Lippman, Josee Lajoie, Barbara Moo', isbn: '9780321714114', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2012, edition: '5th', shelfLocation: 'A2-02', totalCopies: 4, description: 'The definitive introduction to C++11, covering the full language standard.' },
+  { title: 'Effective Modern C++', subtitle: '42 Specific Ways to Improve Your Use of C++11 and C++14', author: 'Scott Meyers', isbn: '9781491903995', category: 'Programming', publisher: "O'Reilly", publishedYear: 2014, edition: '1st', shelfLocation: 'A2-03', totalCopies: 3, description: 'Essential guidance for moving to modern C++ — smart pointers, move semantics, lambdas.' },
+  { title: 'Data Structures Using C', author: 'Reema Thareja', isbn: '9780198099307', category: 'Programming', publisher: 'Oxford University Press', publishedYear: 2014, edition: '2nd', shelfLocation: 'A2-04', totalCopies: 6, description: 'A comprehensive guide to data structures — arrays, linked lists, stacks, queues, trees, graphs.' },
+  { title: 'Let Us C', author: 'Yashavant Kanetkar', isbn: '9789386052162', category: 'Programming', publisher: 'BPB Publications', publishedYear: 2019, edition: '17th', shelfLocation: 'A2-05', totalCopies: 8, description: 'Most popular C programming book in India. Covers basics to advanced C concepts.' },
+  { title: 'Effective Java', author: 'Joshua Bloch', isbn: '9780134685991', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2018, edition: '3rd', shelfLocation: 'A3-01', totalCopies: 5, description: 'Best practices for the Java platform — 90 carefully crafted items to write robust code.' },
+  { title: 'Head First Java', author: 'Kathy Sierra, Bert Bates', isbn: '9780596009205', category: 'Programming', publisher: "O'Reilly", publishedYear: 2005, edition: '2nd', shelfLocation: 'A3-02', totalCopies: 6, description: 'A brain-friendly guide to learning Java — engaging visuals, puzzles, and real-world examples.' },
+  { title: 'Java: The Complete Reference', author: 'Herbert Schildt', isbn: '9781260463419', category: 'Programming', publisher: 'McGraw-Hill', publishedYear: 2021, edition: '12th', shelfLocation: 'A3-03', totalCopies: 5, description: 'The comprehensive Java reference covering Java SE 11 and beyond.' },
+  { title: 'Core Java Volume I', subtitle: 'Fundamentals', author: 'Cay Horstmann', isbn: '9780135166307', category: 'Programming', publisher: 'Prentice Hall', publishedYear: 2019, edition: '11th', shelfLocation: 'A3-04', totalCopies: 4, description: 'The definitive guide to Java fundamentals — streams, lambdas, generics, and more.' },
+  { title: 'Spring in Action', author: 'Craig Walls', isbn: '9781617294945', category: 'Programming', publisher: 'Manning', publishedYear: 2018, edition: '5th', shelfLocation: 'A3-05', totalCopies: 4, description: 'The go-to guide for Spring Framework — Spring Boot, MVC, security, and data.' },
+  { title: 'Python Crash Course', subtitle: 'A Hands-On Project-Based Introduction', author: 'Eric Matthes', isbn: '9781718500723', category: 'Programming', publisher: 'No Starch Press', publishedYear: 2023, edition: '3rd', shelfLocation: 'A4-01', totalCopies: 7, description: "The world's best-selling Python book — fast-paced, beginner-friendly, project-based." },
+  { title: 'Fluent Python', subtitle: 'Clear, Concise, and Effective Programming', author: 'Luciano Ramalho', isbn: '9781492056355', category: 'Programming', publisher: "O'Reilly", publishedYear: 2022, edition: '2nd', shelfLocation: 'A4-02', totalCopies: 5, description: "How to write idiomatic Python code — leveraging the language's best features." },
+  { title: 'Learning Python', author: 'Mark Lutz', isbn: '9781449355739', category: 'Programming', publisher: "O'Reilly", publishedYear: 2013, edition: '5th', shelfLocation: 'A4-03', totalCopies: 4, description: 'A comprehensive introduction to Python — from fundamentals to advanced topics.' },
+  { title: 'Automate the Boring Stuff with Python', author: 'Al Sweigart', isbn: '9781593279929', category: 'Programming', publisher: 'No Starch Press', publishedYear: 2019, edition: '2nd', shelfLocation: 'A4-04', totalCopies: 6, description: 'Practical Python programming for total beginners — automate real-world tasks.' },
+  { title: 'Python Cookbook', author: 'David Beazley, Brian Jones', isbn: '9781449340377', category: 'Programming', publisher: "O'Reilly", publishedYear: 2013, edition: '3rd', shelfLocation: 'A4-05', totalCopies: 4, description: 'Recipes for mastering Python 3 — data structures, algorithms, metaprogramming, concurrency.' },
+  { title: 'Eloquent JavaScript', subtitle: 'A Modern Introduction to Programming', author: 'Marijn Haverbeke', isbn: '9781593279509', category: 'Programming', publisher: 'No Starch Press', publishedYear: 2018, edition: '3rd', shelfLocation: 'A5-01', totalCopies: 5, description: 'A modern deep introduction to JavaScript — from basic syntax to functional programming.' },
+  { title: "You Don't Know JS: Scope and Closures", author: 'Kyle Simpson', isbn: '9781491904220', category: 'Programming', publisher: "O'Reilly", publishedYear: 2014, edition: '1st', shelfLocation: 'A5-02', totalCopies: 4, description: "A deep dive into JavaScript's scope, hoisting, and closure mechanics." },
+  { title: 'JavaScript: The Good Parts', author: 'Douglas Crockford', isbn: '9780596517748', category: 'Programming', publisher: "O'Reilly", publishedYear: 2008, edition: '1st', shelfLocation: 'A5-03', totalCopies: 4, description: 'The subset of JavaScript features that make it a truly beautiful language.' },
+  { title: 'JavaScript: The Definitive Guide', author: 'David Flanagan', isbn: '9781491952023', category: 'Programming', publisher: "O'Reilly", publishedYear: 2020, edition: '7th', shelfLocation: 'A5-04', totalCopies: 4, description: 'The comprehensive reference to modern JavaScript — ES2020 and beyond.' },
+  { title: 'Programming TypeScript', subtitle: 'Making Your JavaScript Applications Scale', author: 'Boris Cherny', isbn: '9781492037651', category: 'Programming', publisher: "O'Reilly", publishedYear: 2019, edition: '1st', shelfLocation: 'A5-05', totalCopies: 4, description: 'A deep dive into TypeScript — type system, generics, decorators, async programming.' },
+  { title: 'The Mythical Man-Month', subtitle: 'Essays on Software Engineering', author: 'Frederick Brooks', isbn: '9780201835953', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 1995, edition: 'Anniversary', shelfLocation: 'A6-01', totalCopies: 3, description: 'A classic on software project management — why adding people to late projects makes them later.' },
+  { title: 'Software Engineering', author: 'Ian Sommerville', isbn: '9780133943030', category: 'Programming', publisher: 'Pearson', publishedYear: 2015, edition: '10th', shelfLocation: 'A6-02', totalCopies: 5, description: 'A comprehensive introduction to software engineering principles, processes, and practices.' },
+  { title: 'The Art of Computer Programming Vol. 1', subtitle: 'Fundamental Algorithms', author: 'Donald Knuth', isbn: '9780201485417', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 1997, edition: '3rd', shelfLocation: 'A6-03', totalCopies: 2, description: 'The definitive multi-volume work on fundamental algorithms by the father of algorithm analysis.' },
+  { title: 'Working Effectively with Legacy Code', author: 'Michael Feathers', isbn: '9780131177055', category: 'Programming', publisher: 'Prentice Hall', publishedYear: 2004, edition: '1st', shelfLocation: 'A6-04', totalCopies: 3, description: 'Techniques for working with and safely modifying legacy code without breaking it.' },
+  { title: 'The Clean Coder', subtitle: 'A Code of Conduct for Professional Programmers', author: 'Robert C. Martin', isbn: '9780137081073', category: 'Programming', publisher: 'Prentice Hall', publishedYear: 2011, edition: '1st', shelfLocation: 'A6-05', totalCopies: 4, description: 'Professionalism in software development — responsibility, ethics, and career guidance.' },
+  { title: 'Operating System Concepts', subtitle: 'The Dinosaur Book', author: 'Abraham Silberschatz, Peter Galvin', isbn: '9781119800330', category: 'Programming', publisher: 'Wiley', publishedYear: 2021, edition: '10th', shelfLocation: 'A7-01', totalCopies: 6, description: 'The definitive OS textbook — processes, threads, memory, file systems, I/O.' },
+  { title: 'Modern Operating Systems', author: 'Andrew Tanenbaum, Herbert Bos', isbn: '9780133591620', category: 'Programming', publisher: 'Pearson', publishedYear: 2014, edition: '4th', shelfLocation: 'A7-02', totalCopies: 4, description: 'A clear and comprehensive text on the principles and practice of modern operating systems.' },
+  { title: 'Computer Organization and Design', subtitle: 'RISC-V Edition', author: 'David Patterson, John Hennessy', isbn: '9780128203316', category: 'Programming', publisher: 'Morgan Kaufmann', publishedYear: 2020, edition: '5th', shelfLocation: 'A7-03', totalCopies: 4, description: 'The hardware/software interface — a classic textbook on computer organization.' },
+  { title: 'Compilers: Principles, Techniques, and Tools', subtitle: 'The Dragon Book', author: 'Aho, Lam, Sethi, Ullman', isbn: '9780321486813', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2006, edition: '2nd', shelfLocation: 'A8-01', totalCopies: 3, description: 'The definitive reference on compiler construction — lexing, parsing, semantic analysis.' },
+  { title: 'Introduction to the Theory of Computation', author: 'Michael Sipser', isbn: '9781133187790', category: 'Programming', publisher: 'Cengage', publishedYear: 2012, edition: '3rd', shelfLocation: 'A8-02', totalCopies: 4, description: 'Automata, computability, and complexity — the mathematical theory of computation.' },
+  { title: 'Discrete Mathematics and Its Applications', author: 'Kenneth Rosen', isbn: '9780073383095', category: 'Programming', publisher: 'McGraw-Hill', publishedYear: 2018, edition: '8th', shelfLocation: 'A8-03', totalCopies: 6, description: 'Logic, sets, proof techniques, combinatorics, graph theory, and discrete structures.' },
+  { title: 'System Design Interview', subtitle: "An Insider's Guide", author: 'Alex Xu', isbn: '9798664653403', category: 'Programming', publisher: 'Independently Published', publishedYear: 2020, edition: '2nd', shelfLocation: 'A9-01', totalCopies: 5, description: 'A step-by-step framework for solving any system design interview question.' },
+  { title: 'Domain-Driven Design', subtitle: 'Tackling Complexity in the Heart of Software', author: 'Eric Evans', isbn: '9780321125217', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2003, edition: '1st', shelfLocation: 'A9-02', totalCopies: 3, description: 'Connecting the implementation to an evolving model — entities, value objects, aggregates.' },
+  { title: 'Microservices Patterns', subtitle: 'With examples in Java', author: 'Chris Richardson', isbn: '9781617294549', category: 'Programming', publisher: 'Manning', publishedYear: 2018, edition: '1st', shelfLocation: 'A9-03', totalCopies: 4, description: 'Patterns for microservices — API gateway, saga pattern, event sourcing, CQRS.' },
+  { title: 'Building Microservices', subtitle: 'Designing Fine-Grained Systems', author: 'Sam Newman', isbn: '9781492034025', category: 'Programming', publisher: "O'Reilly", publishedYear: 2021, edition: '2nd', shelfLocation: 'A9-04', totalCopies: 4, description: 'How to design, build, and maintain a microservices architecture at scale.' },
+  { title: 'Test-Driven Development: By Example', author: 'Kent Beck', isbn: '9780321146533', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2002, edition: '1st', shelfLocation: 'A9-05', totalCopies: 3, description: 'The classic guide to TDD — writing tests first to drive design and gain confidence.' },
+  { title: 'Continuous Delivery', subtitle: 'Reliable Software Releases through Build, Test, and Deployment Automation', author: 'Jez Humble, David Farley', isbn: '9780321601919', category: 'Programming', publisher: 'Addison-Wesley', publishedYear: 2010, edition: '1st', shelfLocation: 'A9-06', totalCopies: 3, description: 'The definitive guide to continuous delivery pipelines.' },
+  { title: 'Mastering Bitcoin', subtitle: 'Programming the Open Blockchain', author: 'Andreas Antonopoulos', isbn: '9781491954386', category: 'Programming', publisher: "O'Reilly", publishedYear: 2017, edition: '2nd', shelfLocation: 'A10-01', totalCopies: 4, description: 'The definitive technical guide to Bitcoin — keys, wallets, mining, transactions.' },
+  { title: 'Designing Distributed Systems', subtitle: 'Patterns and Paradigms for Scalable Services', author: 'Brendan Burns', isbn: '9781491983645', category: 'Programming', publisher: "O'Reilly", publishedYear: 2018, edition: '1st', shelfLocation: 'A10-02', totalCopies: 3, description: 'Patterns for distributed systems — sidecars, ambassadors, adapters, event-driven architecture.' },
+  // ── ARTIFICIAL INTELLIGENCE ──────────────────────────────────────────────────
+  { title: 'Artificial Intelligence: A Modern Approach', author: 'Stuart Russell, Peter Norvig', isbn: '9780134610993', category: 'Artificial Intelligence', publisher: 'Pearson', publishedYear: 2020, edition: '4th', shelfLocation: 'B1-01', totalCopies: 5, description: 'The definitive AI textbook — problem solving, knowledge representation, planning, ML, vision, NLP.' },
+  { title: 'Grokking Artificial Intelligence Algorithms', author: 'Rishal Hurbans', isbn: '9781617296512', category: 'Artificial Intelligence', publisher: 'Manning', publishedYear: 2020, edition: '1st', shelfLocation: 'B1-02', totalCopies: 4, description: 'An illustrated guide to AI algorithms — search, planning, evolutionary algorithms, neural networks.' },
+  { title: 'Life 3.0: Being Human in the Age of AI', author: 'Max Tegmark', isbn: '9780525558569', category: 'Artificial Intelligence', publisher: 'Knopf', publishedYear: 2017, edition: '1st', shelfLocation: 'B1-03', totalCopies: 3, description: 'Exploring the near and far future of AI and its implications for humanity.' },
+  { title: 'Human Compatible', subtitle: 'Artificial Intelligence and the Problem of Control', author: 'Stuart Russell', isbn: '9780525558552', category: 'Artificial Intelligence', publisher: 'Viking', publishedYear: 2019, edition: '1st', shelfLocation: 'B1-04', totalCopies: 3, description: 'A new framework for thinking about AI — building machines that serve human preferences.' },
+  { title: 'Natural Language Processing with Python', author: 'Steven Bird, Ewan Klein, Edward Loper', isbn: '9780596516499', category: 'Artificial Intelligence', publisher: "O'Reilly", publishedYear: 2009, edition: '1st', shelfLocation: 'B1-05', totalCopies: 4, description: 'Analyzing text with the Natural Language Toolkit — tokenizing, tagging, classifying, parsing.' },
+  { title: 'Speech and Language Processing', author: 'Daniel Jurafsky, James Martin', isbn: '9780131873216', category: 'Artificial Intelligence', publisher: 'Pearson', publishedYear: 2008, edition: '2nd', shelfLocation: 'B1-06', totalCopies: 3, description: 'A comprehensive textbook on NLP, speech recognition, and computational linguistics.' },
+  { title: 'Superintelligence', subtitle: 'Paths, Dangers, Strategies', author: 'Nick Bostrom', isbn: '9780199678112', category: 'Artificial Intelligence', publisher: 'Oxford University Press', publishedYear: 2014, edition: '1st', shelfLocation: 'B1-07', totalCopies: 3, description: 'The profound question of what happens when AI surpasses human intelligence.' },
+  { title: 'Computer Vision: Algorithms and Applications', author: 'Richard Szeliski', isbn: '9781848829343', category: 'Artificial Intelligence', publisher: 'Springer', publishedYear: 2010, edition: '1st', shelfLocation: 'B1-08', totalCopies: 3, description: 'A comprehensive introduction to computer vision — image formation, feature detection, segmentation.' },
+  { title: 'Natural Language Processing with Transformers', author: 'Lewis Tunstall, Leandro von Werra', isbn: '9781098103248', category: 'Artificial Intelligence', publisher: "O'Reilly", publishedYear: 2022, edition: '1st', shelfLocation: 'B2-01', totalCopies: 4, description: 'Building powerful NLP applications with HuggingFace Transformers — BERT, GPT, and beyond.' },
+  { title: 'Hands-On Machine Learning with Scikit-Learn, Keras and TensorFlow', author: 'Aurelien Geron', isbn: '9781098125974', category: 'Machine Learning', publisher: "O'Reilly", publishedYear: 2022, edition: '3rd', shelfLocation: 'C1-01', totalCopies: 6, description: 'Concepts, tools, and techniques to build intelligent systems — end-to-end ML projects.' },
+  { title: 'Pattern Recognition and Machine Learning', author: 'Christopher Bishop', isbn: '9780387310732', category: 'Machine Learning', publisher: 'Springer', publishedYear: 2006, edition: '1st', shelfLocation: 'C1-02', totalCopies: 3, description: 'The comprehensive Bayesian framework for pattern recognition — the classic graduate text.' },
+  { title: 'Deep Learning', author: 'Ian Goodfellow, Yoshua Bengio, Aaron Courville', isbn: '9780262035613', category: 'Machine Learning', publisher: 'MIT Press', publishedYear: 2016, edition: '1st', shelfLocation: 'C1-03', totalCopies: 5, description: 'The foundational textbook on deep learning theory — CNNs, RNNs, generative models, optimization.' },
+  { title: 'Reinforcement Learning: An Introduction', author: 'Richard Sutton, Andrew Barto', isbn: '9780262039246', category: 'Machine Learning', publisher: 'MIT Press', publishedYear: 2018, edition: '2nd', shelfLocation: 'C1-04', totalCopies: 4, description: 'The definitive introduction to reinforcement learning — MDPs, Q-learning, policy gradients.' },
+  { title: 'The Hundred-Page Machine Learning Book', author: 'Andriy Burkov', isbn: '9781999858506', category: 'Machine Learning', publisher: 'Andriy Burkov', publishedYear: 2019, edition: '1st', shelfLocation: 'C1-05', totalCopies: 5, description: 'A concise comprehensive overview of the most important concepts in machine learning.' },
+  { title: 'Understanding Machine Learning', subtitle: 'From Theory to Algorithms', author: 'Shai Shalev-Shwartz, Shai Ben-David', isbn: '9781107057135', category: 'Machine Learning', publisher: 'Cambridge University Press', publishedYear: 2014, edition: '1st', shelfLocation: 'C1-06', totalCopies: 3, description: 'The mathematical foundations of machine learning — PAC learning, VC dimension, boosting.' },
+  { title: 'Deep Learning with Python', author: 'Francois Chollet', isbn: '9781617296864', category: 'Machine Learning', publisher: 'Manning', publishedYear: 2021, edition: '2nd', shelfLocation: 'C2-01', totalCopies: 5, description: 'Deep learning in Python using the Keras framework — CNNs, RNNs, GANs, and more.' },
+  { title: 'Grokking Deep Learning', author: 'Andrew Trask', isbn: '9781617293702', category: 'Machine Learning', publisher: 'Manning', publishedYear: 2019, edition: '1st', shelfLocation: 'C2-02', totalCopies: 4, description: 'Build and understand neural networks from scratch using Python — intuitive and hands-on.' },
+  { title: 'Python for Data Analysis', subtitle: 'Data Wrangling with Pandas, NumPy and Jupyter', author: 'Wes McKinney', isbn: '9781098104030', category: 'Data Science', publisher: "O'Reilly", publishedYear: 2022, edition: '3rd', shelfLocation: 'D1-01', totalCopies: 6, description: 'The definitive guide to data analysis with Python — pandas, NumPy, time series, data cleaning.' },
+  { title: 'Storytelling with Data', subtitle: 'A Data Visualization Guide for Business Professionals', author: 'Cole Nussbaumer Knaflic', isbn: '9781119002253', category: 'Data Science', publisher: 'Wiley', publishedYear: 2015, edition: '1st', shelfLocation: 'D1-02', totalCopies: 4, description: 'How to create compelling data visualizations that communicate clearly and effectively.' },
+  { title: 'Data Science from Scratch', subtitle: 'First Principles with Python', author: 'Joel Grus', isbn: '9781492041139', category: 'Data Science', publisher: "O'Reilly", publishedYear: 2019, edition: '2nd', shelfLocation: 'D1-03', totalCopies: 5, description: 'Build data science tools from scratch — statistics, linear algebra, ML algorithms in Python.' },
+  { title: 'Practical Statistics for Data Scientists', author: 'Peter Bruce, Andrew Bruce', isbn: '9781492072942', category: 'Data Science', publisher: "O'Reilly", publishedYear: 2020, edition: '2nd', shelfLocation: 'D1-04', totalCopies: 4, description: 'Essential statistical methods for data scientists — sampling, regression, classification, time series.' },
+  { title: 'The Data Warehouse Toolkit', subtitle: 'The Definitive Guide to Dimensional Modeling', author: 'Ralph Kimball, Margy Ross', isbn: '9781118530801', category: 'Data Science', publisher: 'Wiley', publishedYear: 2013, edition: '3rd', shelfLocation: 'D1-05', totalCopies: 3, description: 'The definitive guide to dimensional modeling for data warehouses and business intelligence.' },
+  { title: 'Data Science for Business', author: 'Foster Provost, Tom Fawcett', isbn: '9781449361327', category: 'Data Science', publisher: "O'Reilly", publishedYear: 2013, edition: '1st', shelfLocation: 'D1-06', totalCopies: 4, description: 'What you need to know about data mining and data-analytic thinking for business decisions.' },
+  { title: 'R for Data Science', author: 'Hadley Wickham, Garrett Grolemund', isbn: '9781491910399', category: 'Data Science', publisher: "O'Reilly", publishedYear: 2017, edition: '1st', shelfLocation: 'D1-07', totalCopies: 4, description: 'Import, tidy, transform, visualize, and model data with R and the tidyverse.' },
+  { title: 'Big Data: A Revolution That Will Transform How We Live', author: 'Viktor Mayer-Schonberger, Kenneth Cukier', isbn: '9780544002692', category: 'Data Science', publisher: 'Houghton Mifflin Harcourt', publishedYear: 2013, edition: '1st', shelfLocation: 'D1-08', totalCopies: 3, description: 'How the data deluge is changing the way we live, work, and think.' },
+  // ── WEB DEVELOPMENT ──────────────────────────────────────────────────────────
+  { title: 'HTML and CSS: Design and Build Websites', author: 'Jon Duckett', isbn: '9781118008188', category: 'Web Development', publisher: 'Wiley', publishedYear: 2011, edition: '1st', shelfLocation: 'E1-01', totalCopies: 8, description: 'A visually beautiful introduction to web design using HTML5 and CSS3.' },
+  { title: 'Learning React', subtitle: 'Modern Patterns for Developing React Apps', author: 'Alex Banks, Eve Porcello', isbn: '9781492051725', category: 'Web Development', publisher: "O'Reilly", publishedYear: 2020, edition: '2nd', shelfLocation: 'E1-02', totalCopies: 6, description: 'Functional web development with React and Hooks — state management, performance, testing.' },
+  { title: 'Node.js Design Patterns', subtitle: 'Design and implement production-grade Node.js applications', author: 'Mario Casciaro, Luciano Mammino', isbn: '9781839214110', category: 'Web Development', publisher: 'Packt', publishedYear: 2020, edition: '3rd', shelfLocation: 'E1-03', totalCopies: 4, description: 'Battle-tested patterns for writing robust, scalable, and maintainable Node.js applications.' },
+  { title: 'CSS: The Definitive Guide', author: 'Eric Meyer, Estelle Weyl', isbn: '9781098117610', category: 'Web Development', publisher: "O'Reilly", publishedYear: 2022, edition: '5th', shelfLocation: 'E1-04', totalCopies: 4, description: 'The complete reference to CSS — visual layout, animations, responsive design, and grid.' },
+  { title: 'JavaScript and JQuery', subtitle: 'Interactive Front-End Web Development', author: 'Jon Duckett', isbn: '9781118531648', category: 'Web Development', publisher: 'Wiley', publishedYear: 2014, edition: '1st', shelfLocation: 'E1-05', totalCopies: 5, description: 'A visual guide to JavaScript and jQuery for building interactive web pages.' },
+  { title: 'Express in Action', subtitle: 'Writing, building, and testing Node.js applications', author: 'Evan Hahn', isbn: '9781617292422', category: 'Web Development', publisher: 'Manning', publishedYear: 2016, edition: '1st', shelfLocation: 'E1-06', totalCopies: 3, description: 'A practical guide to the Express framework for Node.js web development.' },
+  { title: 'REST API Design Rulebook', author: 'Mark Masse', isbn: '9781449310509', category: 'Web Development', publisher: "O'Reilly", publishedYear: 2011, edition: '1st', shelfLocation: 'E1-07', totalCopies: 3, description: 'Designing and building consistent, well-structured RESTful APIs.' },
+  { title: 'GraphQL in Action', author: 'Samer Buna', isbn: '9781617295683', category: 'Web Development', publisher: 'Manning', publishedYear: 2021, edition: '1st', shelfLocation: 'E1-08', totalCopies: 3, description: 'Building production-ready GraphQL APIs with Node.js and React.' },
+  { title: 'Learning TypeScript', subtitle: 'Enhance Your Web Development Skills Using Type-Safe JavaScript', author: 'Josh Goldberg', isbn: '9781098110338', category: 'Web Development', publisher: "O'Reilly", publishedYear: 2022, edition: '1st', shelfLocation: 'E2-01', totalCopies: 4, description: 'TypeScript from beginner to advanced — type system, generics, declaration files, configuration.' },
+  { title: 'Learning PHP, MySQL and JavaScript', author: 'Robin Nixon', isbn: '9781492093824', category: 'Web Development', publisher: "O'Reilly", publishedYear: 2021, edition: '6th', shelfLocation: 'E2-02', totalCopies: 4, description: 'Building dynamic web applications with PHP, MySQL, and JavaScript.' },
+  { title: 'Full Stack React', subtitle: 'The Complete Guide to ReactJS and Friends', author: 'Anthony Accomazzo, Nate Murray', isbn: '9780991344611', category: 'Web Development', publisher: 'Fullstack.io', publishedYear: 2017, edition: '1st', shelfLocation: 'E2-03', totalCopies: 4, description: 'A comprehensive guide to building full-stack web applications with React.' },
+  // ── DATABASES ────────────────────────────────────────────────────────────────
+  { title: 'Database System Concepts', author: 'Abraham Silberschatz, Henry Korth, S. Sudarshan', isbn: '9780078022159', category: 'Databases', publisher: 'McGraw-Hill', publishedYear: 2019, edition: '7th', shelfLocation: 'F1-01', totalCopies: 5, description: 'The comprehensive database textbook — relational model, SQL, normalization, transactions, indexing.' },
+  { title: 'Fundamentals of Database Systems', author: 'Ramez Elmasri, Shamkant Navathe', isbn: '9780133970777', category: 'Databases', publisher: 'Pearson', publishedYear: 2015, edition: '7th', shelfLocation: 'F1-02', totalCopies: 5, description: 'A clear and comprehensive introduction to database design and SQL.' },
+  { title: 'Learning SQL', subtitle: 'Generate, Manipulate, and Retrieve Data', author: 'Alan Beaulieu', isbn: '9781492057611', category: 'Databases', publisher: "O'Reilly", publishedYear: 2020, edition: '3rd', shelfLocation: 'F1-03', totalCopies: 6, description: 'Master SQL fundamentals — queries, data manipulation, transactions, indexes, stored procedures.' },
+  { title: 'MongoDB: The Definitive Guide', subtitle: 'Powerful and Scalable Data Storage', author: 'Shannon Bradshaw, Eoin Brazil, Kristina Chodorow', isbn: '9781491954461', category: 'Databases', publisher: "O'Reilly", publishedYear: 2019, edition: '3rd', shelfLocation: 'F1-04', totalCopies: 5, description: 'The complete guide to MongoDB — CRUD, indexes, aggregation, replication, sharding.' },
+  { title: 'Designing Data-Intensive Applications', author: 'Martin Kleppmann', isbn: '9781449373320', category: 'Databases', publisher: "O'Reilly", publishedYear: 2017, edition: '1st', shelfLocation: 'F1-05', totalCopies: 4, description: 'The big ideas behind reliable, scalable, and maintainable systems.' },
+  { title: 'SQL Cookbook', subtitle: 'Query Solutions and Techniques for All SQL Users', author: 'Anthony Molinaro, Robert de Graaf', isbn: '9781492077442', category: 'Databases', publisher: "O'Reilly", publishedYear: 2020, edition: '2nd', shelfLocation: 'F1-06', totalCopies: 4, description: 'Practical SQL recipes for solving real-world data retrieval and manipulation problems.' },
+  { title: 'PostgreSQL: Up and Running', author: 'Regina Obe, Leo Hsu', isbn: '9781491963418', category: 'Databases', publisher: "O'Reilly", publishedYear: 2017, edition: '3rd', shelfLocation: 'F1-07', totalCopies: 4, description: 'A practical guide to PostgreSQL — extensions, stored procedures, JSON, and performance tuning.' },
+  { title: 'Redis in Action', author: 'Josiah Carlson', isbn: '9781617290855', category: 'Databases', publisher: 'Manning', publishedYear: 2013, edition: '1st', shelfLocation: 'F1-08', totalCopies: 3, description: 'Building data structures, caching, and messaging queues with Redis.' },
+  // ── NETWORKING ───────────────────────────────────────────────────────────────
+  { title: 'Computer Networking: A Top-Down Approach', author: 'James Kurose, Keith Ross', isbn: '9780136681557', category: 'Networking', publisher: 'Pearson', publishedYear: 2021, edition: '8th', shelfLocation: 'G1-01', totalCopies: 5, description: 'An internet-focused approach to computer networking — from application layer down to physical.' },
+  { title: 'Computer Networks', author: 'Andrew Tanenbaum, David Wetherall', isbn: '9780132126953', category: 'Networking', publisher: 'Pearson', publishedYear: 2010, edition: '5th', shelfLocation: 'G1-02', totalCopies: 5, description: 'The classic networking textbook — protocols, architectures, and technologies from the bottom up.' },
+  { title: 'TCP/IP Illustrated, Volume 1', subtitle: 'The Protocols', author: 'W. Richard Stevens, Kevin Fall', isbn: '9780321336316', category: 'Networking', publisher: 'Addison-Wesley', publishedYear: 2011, edition: '2nd', shelfLocation: 'G1-03', totalCopies: 3, description: 'An in-depth explanation of the Internet protocols — TCP, UDP, IP, DNS, HTTP.' },
+  { title: 'Network Security Essentials', subtitle: 'Applications and Standards', author: 'William Stallings', isbn: '9780134527338', category: 'Networking', publisher: 'Pearson', publishedYear: 2017, edition: '6th', shelfLocation: 'G1-04', totalCopies: 4, description: 'Key topics in network security — cryptography, VPNs, firewalls, wireless security.' },
+  { title: 'Data Communications and Networking', author: 'Behrouz Forouzan', isbn: '9780073376226', category: 'Networking', publisher: 'McGraw-Hill', publishedYear: 2012, edition: '5th', shelfLocation: 'G1-05', totalCopies: 5, description: 'A comprehensive introduction to data communications — protocols, layers, and internet technologies.' },
+  // ── CYBER SECURITY ───────────────────────────────────────────────────────────
+  { title: "The Web Application Hacker's Handbook", subtitle: 'Finding and Exploiting Security Flaws', author: 'Dafydd Stuttard, Marcus Pinto', isbn: '9781118026472', category: 'Cyber Security', publisher: 'Wiley', publishedYear: 2011, edition: '2nd', shelfLocation: 'H1-01', totalCopies: 4, description: 'A comprehensive guide to finding and exploiting security vulnerabilities in web applications.' },
+  { title: 'Hacking: The Art of Exploitation', author: 'Jon Erickson', isbn: '9781593271442', category: 'Cyber Security', publisher: 'No Starch Press', publishedYear: 2008, edition: '2nd', shelfLocation: 'H1-02', totalCopies: 3, description: "Understanding hacking from a programmer's perspective — buffer overflows, shellcode, cryptography." },
+  { title: 'Cryptography and Network Security', subtitle: 'Principles and Practice', author: 'William Stallings', isbn: '9780134444284', category: 'Cyber Security', publisher: 'Pearson', publishedYear: 2019, edition: '8th', shelfLocation: 'H1-03', totalCopies: 4, description: 'A comprehensive textbook on cryptography and network security — symmetric, asymmetric, PKI, TLS.' },
+  { title: 'Applied Cryptography', subtitle: 'Protocols, Algorithms, and Source Code in C', author: 'Bruce Schneier', isbn: '9781119096726', category: 'Cyber Security', publisher: 'Wiley', publishedYear: 2015, edition: '20th Anniversary', shelfLocation: 'H1-04', totalCopies: 3, description: 'The definitive reference on cryptography — protocols, algorithms, and their real-world implementation.' },
+  { title: 'Cybersecurity Essentials', author: 'Charles Brooks, Christopher Grow', isbn: '9781119394396', category: 'Cyber Security', publisher: 'Wiley', publishedYear: 2018, edition: '1st', shelfLocation: 'H1-05', totalCopies: 5, description: 'Core concepts of cybersecurity — threats, vulnerabilities, risk management, and countermeasures.' },
+  { title: 'Ethical Hacking and Penetration Testing Guide', author: 'Rafay Baloch', isbn: '9781482231625', category: 'Cyber Security', publisher: 'CRC Press', publishedYear: 2014, edition: '1st', shelfLocation: 'H1-06', totalCopies: 3, description: 'A step-by-step guide to ethical hacking and penetration testing methodologies.' },
+  { title: 'Practical Malware Analysis', subtitle: 'The Hands-On Guide to Dissecting Malicious Software', author: 'Michael Sikorski, Andrew Honig', isbn: '9781593272906', category: 'Cyber Security', publisher: 'No Starch Press', publishedYear: 2012, edition: '1st', shelfLocation: 'H1-07', totalCopies: 3, description: 'Tools and techniques for analyzing malware — reverse engineering, debugging, IDA Pro.' },
+  // ── CLOUD COMPUTING / DEVOPS ─────────────────────────────────────────────────
+  { title: 'AWS in Action', author: 'Michael Wittig, Andreas Wittig', isbn: '9781617295119', category: 'Cloud Computing', publisher: 'Manning', publishedYear: 2018, edition: '2nd', shelfLocation: 'I1-01', totalCopies: 5, description: 'Running web applications on Amazon Web Services — EC2, S3, RDS, Lambda, and more.' },
+  { title: 'Kubernetes in Action', author: 'Marko Luksa', isbn: '9781617293726', category: 'Cloud Computing', publisher: 'Manning', publishedYear: 2018, edition: '1st', shelfLocation: 'I1-02', totalCopies: 4, description: 'The complete guide to Kubernetes — deploying, scaling, and managing containerized applications.' },
+  { title: 'Docker Deep Dive', author: 'Nigel Poulton', isbn: '9781521822807', category: 'Cloud Computing', publisher: 'Independently Published', publishedYear: 2020, edition: '2020 Edition', shelfLocation: 'I1-03', totalCopies: 5, description: 'Docker from scratch — images, containers, volumes, networking, and Docker Compose.' },
+  { title: 'Site Reliability Engineering', subtitle: 'How Google Runs Production Systems', author: 'Niall Murphy, Betsy Beyer, Chris Jones', isbn: '9781491929124', category: 'Cloud Computing', publisher: "O'Reilly", publishedYear: 2016, edition: '1st', shelfLocation: 'I1-04', totalCopies: 3, description: 'How Google runs its services at scale — SRE principles, on-call, incident management.' },
+  { title: 'The DevOps Handbook', subtitle: 'How to Create World-Class Agility, Reliability, and Security', author: 'Gene Kim, Patrick Debois', isbn: '9781942788003', category: 'Cloud Computing', publisher: 'IT Revolution', publishedYear: 2016, edition: '1st', shelfLocation: 'I1-05', totalCopies: 4, description: 'The principles and practices of DevOps — continuous delivery, flow, feedback, and learning.' },
+  { title: 'The Phoenix Project', subtitle: 'A Novel about IT, DevOps, and Helping Your Business Win', author: 'Gene Kim, Kevin Behr, George Spafford', isbn: '9781942788294', category: 'Cloud Computing', publisher: 'IT Revolution', publishedYear: 2018, edition: '5th', shelfLocation: 'I1-06', totalCopies: 5, description: 'A novel that teaches DevOps principles through a compelling story of IT transformation.' },
+  { title: 'Terraform: Up and Running', subtitle: 'Writing Infrastructure as Code', author: 'Yevgeniy Brikman', isbn: '9781098116743', category: 'Cloud Computing', publisher: "O'Reilly", publishedYear: 2022, edition: '3rd', shelfLocation: 'I1-07', totalCopies: 4, description: 'Infrastructure as code with Terraform — AWS, GCP, Azure, modules, and best practices.' },
+  { title: 'Kubernetes: Up and Running', subtitle: 'Dive into the Future of Infrastructure', author: 'Brendan Burns, Joe Beda, Kelsey Hightower', isbn: '9781098110208', category: 'Cloud Computing', publisher: "O'Reilly", publishedYear: 2022, edition: '3rd', shelfLocation: 'I1-08', totalCopies: 4, description: 'Kubernetes from the creators — pods, services, deployments, stateful sets, RBAC.' },
+  { title: 'Cloud Native Patterns', subtitle: 'Designing change-tolerant software', author: 'Cornelia Davis', isbn: '9781617294297', category: 'Cloud Computing', publisher: 'Manning', publishedYear: 2019, edition: '1st', shelfLocation: 'I1-09', totalCopies: 3, description: 'Patterns for building cloud-native applications — microservices, resilience, observability.' },
+  { title: 'Docker in Practice', subtitle: '100+ Techniques for Real-World Docker Usage', author: 'Ian Miell, Aidan Hobson Sayers', isbn: '9781617294327', category: 'Cloud Computing', publisher: 'Manning', publishedYear: 2019, edition: '2nd', shelfLocation: 'I1-10', totalCopies: 4, description: 'Practical techniques for Docker in real projects — CI/CD, networking, security, orchestration.' },
+  // ── MATHEMATICS ──────────────────────────────────────────────────────────────
+  { title: 'Calculus', subtitle: 'Early Transcendentals', author: 'James Stewart', isbn: '9781285741550', category: 'Mathematics', publisher: 'Cengage', publishedYear: 2015, edition: '8th', shelfLocation: 'J1-01', totalCopies: 8, description: 'The gold standard calculus textbook — limits, derivatives, integrals, series, differential equations.' },
+  { title: 'Linear Algebra and Its Applications', author: 'David Lay, Steven Lay, Judi McDonald', isbn: '9780321982384', category: 'Mathematics', publisher: 'Pearson', publishedYear: 2015, edition: '5th', shelfLocation: 'J1-02', totalCopies: 6, description: 'A clear and accessible introduction to linear algebra with strong applications.' },
+  { title: 'Linear Algebra Done Right', author: 'Sheldon Axler', isbn: '9783319110790', category: 'Mathematics', publisher: 'Springer', publishedYear: 2015, edition: '3rd', shelfLocation: 'J1-03', totalCopies: 4, description: 'A novel approach to linear algebra that does not rely on determinants.' },
+  { title: 'Mathematics for Machine Learning', author: 'Marc Peter Deisenroth, A. Aldo Faisal, Cheng Soon Ong', isbn: '9781108470049', category: 'Mathematics', publisher: 'Cambridge University Press', publishedYear: 2020, edition: '1st', shelfLocation: 'J1-04', totalCopies: 5, description: 'Linear algebra, probability, calculus, and optimization for machine learning.' },
+  { title: 'Introduction to Probability', author: 'Dimitri Bertsekas, John Tsitsiklis', isbn: '9781886529236', category: 'Mathematics', publisher: 'Athena Scientific', publishedYear: 2008, edition: '2nd', shelfLocation: 'J1-05', totalCopies: 4, description: 'A clear introduction to probability theory with applications to statistics and engineering.' },
+  { title: 'Probability and Statistics for Engineers and Scientists', author: 'Ronald Walpole, Raymond Myers', isbn: '9780134115856', category: 'Mathematics', publisher: 'Pearson', publishedYear: 2016, edition: '9th', shelfLocation: 'J1-06', totalCopies: 5, description: 'A comprehensive probability and statistics textbook for engineering students.' },
+  { title: 'Numerical Methods for Engineers', author: 'Steven Chapra, Raymond Canale', isbn: '9780073397924', category: 'Mathematics', publisher: 'McGraw-Hill', publishedYear: 2014, edition: '7th', shelfLocation: 'J1-07', totalCopies: 5, description: 'Numerical methods applied to engineering problems — root finding, integration, differential equations.' },
+  { title: 'Higher Engineering Mathematics', author: 'B.S. Grewal', isbn: '9789385769146', category: 'Mathematics', publisher: 'Khanna Publishers', publishedYear: 2020, edition: '44th', shelfLocation: 'J1-08', totalCopies: 10, description: 'The definitive mathematics reference for engineering students — algebra, calculus, transforms, statistics.' },
+  { title: 'Advanced Engineering Mathematics', author: 'Erwin Kreyszig', isbn: '9781118212431', category: 'Mathematics', publisher: 'Wiley', publishedYear: 2011, edition: '10th', shelfLocation: 'J1-09', totalCopies: 6, description: 'Comprehensive coverage of advanced mathematics for engineers — ODEs, PDEs, complex analysis.' },
+  { title: 'Introduction to Linear Algebra', author: 'Gilbert Strang', isbn: '9780980232776', category: 'Mathematics', publisher: 'Wellesley-Cambridge Press', publishedYear: 2016, edition: '5th', shelfLocation: 'J2-01', totalCopies: 5, description: "Gilbert Strang's renowned linear algebra textbook — vectors, matrices, eigenvalues, and applications." },
+  { title: 'Concrete Mathematics', subtitle: 'A Foundation for Computer Science', author: 'Ronald Graham, Donald Knuth, Oren Patashnik', isbn: '9780201558029', category: 'Mathematics', publisher: 'Addison-Wesley', publishedYear: 1994, edition: '2nd', shelfLocation: 'J2-02', totalCopies: 3, description: 'Mathematical tools used in computer science — sums, recurrences, combinatorics.' },
+  // ── SCIENCE ──────────────────────────────────────────────────────────────────
+  { title: 'A Brief History of Time', subtitle: 'From the Big Bang to Black Holes', author: 'Stephen Hawking', isbn: '9780553053401', category: 'Science', publisher: 'Bantam Books', publishedYear: 1998, edition: '10th Anniversary', shelfLocation: 'K1-01', totalCopies: 6, description: "From the Big Bang to black holes — physics explained for the general reader by the world's most famous scientist." },
+  { title: 'The Feynman Lectures on Physics', author: 'Richard Feynman, Robert Leighton, Matthew Sands', isbn: '9780465023820', category: 'Science', publisher: 'Basic Books', publishedYear: 2011, edition: 'New Millennium', shelfLocation: 'K1-02', totalCopies: 3, description: 'The classic physics lectures by Nobel laureate Richard Feynman — mechanics, electromagnetism, and quantum.' },
+  { title: 'Concepts of Physics', author: 'H.C. Verma', isbn: '9788177091878', category: 'Science', publisher: 'Bharati Bhawan', publishedYear: 2010, edition: '1st', shelfLocation: 'K1-03', totalCopies: 8, description: 'The go-to physics textbook for Indian competitive examinations — comprehensive and conceptual.' },
+  { title: 'University Physics', author: 'Hugh Young, Roger Freedman', isbn: '9780133969290', category: 'Science', publisher: 'Pearson', publishedYear: 2015, edition: '14th', shelfLocation: 'K1-04', totalCopies: 6, description: 'A complete university physics course — mechanics, thermodynamics, electricity, magnetism, modern physics.' },
+  { title: 'The Selfish Gene', author: 'Richard Dawkins', isbn: '9780198788607', category: 'Science', publisher: 'Oxford University Press', publishedYear: 2016, edition: '40th Anniversary', shelfLocation: 'K1-05', totalCopies: 4, description: 'A landmark work in evolutionary biology — genes as the unit of selection.' },
+  { title: 'Cosmos', author: 'Carl Sagan', isbn: '9780345539434', category: 'Science', publisher: 'Ballantine Books', publishedYear: 2013, edition: 'Anniversary', shelfLocation: 'K1-06', totalCopies: 5, description: 'A personal voyage through the universe — astronomy, evolution, and the human condition.' },
+  { title: 'The Gene: An Intimate History', author: 'Siddhartha Mukherjee', isbn: '9781476733500', category: 'Science', publisher: 'Scribner', publishedYear: 2016, edition: '1st', shelfLocation: 'K1-07', totalCopies: 4, description: 'The extraordinary story of the gene — from Mendel to CRISPR and genetic medicine.' },
+  { title: 'Organic Chemistry', author: 'Paula Yurkanis Bruice', isbn: '9780134042282', category: 'Science', publisher: 'Pearson', publishedYear: 2016, edition: '8th', shelfLocation: 'K1-08', totalCopies: 5, description: 'A comprehensive organic chemistry textbook — reactions, mechanisms, and synthesis.' },
+  { title: 'Campbell Biology', author: 'Jane Reece, Lisa Urry, Michael Cain', isbn: '9780134093413', category: 'Science', publisher: 'Pearson', publishedYear: 2016, edition: '11th', shelfLocation: 'K1-09', totalCopies: 5, description: 'The definitive biology textbook — cell biology, genetics, evolution, ecology.' },
+  { title: 'The Elegant Universe', author: 'Brian Greene', isbn: '9780393338102', category: 'Science', publisher: 'Norton', publishedYear: 2010, edition: 'Reissue', shelfLocation: 'K2-01', totalCopies: 4, description: 'Superstrings, hidden dimensions, and the quest for the ultimate theory.' },
+  { title: 'Chemistry: The Central Science', author: 'Theodore Brown, H. LeMay', isbn: '9780134414232', category: 'Science', publisher: 'Pearson', publishedYear: 2017, edition: '14th', shelfLocation: 'K2-02', totalCopies: 5, description: 'The standard general chemistry textbook — atomic structure, bonding, reactions, equilibrium.' },
+  { title: 'QED: The Strange Theory of Light and Matter', author: 'Richard Feynman', isbn: '9780691164090', category: 'Science', publisher: 'Princeton University Press', publishedYear: 2014, edition: 'Anniversary', shelfLocation: 'K2-03', totalCopies: 3, description: "Feynman's brilliant explanation of quantum electrodynamics for a general audience." },
+  // ── ENGINEERING ──────────────────────────────────────────────────────────────
+  { title: 'Electronic Devices and Circuit Theory', author: 'Robert Boylestad, Louis Nashelsky', isbn: '9780132622264', category: 'Engineering', publisher: 'Pearson', publishedYear: 2012, edition: '11th', shelfLocation: 'L1-01', totalCopies: 5, description: 'Comprehensive coverage of electronic devices — diodes, transistors, amplifiers, and op-amps.' },
+  { title: 'Microelectronic Circuits', author: 'Adel Sedra, Kenneth Smith', isbn: '9780195323030', category: 'Engineering', publisher: 'Oxford University Press', publishedYear: 2014, edition: '7th', shelfLocation: 'L1-02', totalCopies: 4, description: 'The definitive microelectronics textbook — circuit analysis, amplifiers, digital circuits, op-amps.' },
+  { title: 'Fundamentals of Electric Circuits', author: 'Charles Alexander, Matthew Sadiku', isbn: '9780073380575', category: 'Engineering', publisher: 'McGraw-Hill', publishedYear: 2012, edition: '5th', shelfLocation: 'L1-03', totalCopies: 5, description: "A clear introduction to electric circuits — Ohm's law, Kirchhoff's laws, AC/DC analysis." },
+  { title: 'Signals and Systems', author: 'Alan Oppenheim, Alan Willsky', isbn: '9780138147570', category: 'Engineering', publisher: 'Pearson', publishedYear: 1996, edition: '2nd', shelfLocation: 'L1-04', totalCopies: 4, description: 'Continuous-time and discrete-time signals and systems — Fourier, Laplace, Z-transforms.' },
+  { title: 'Strength of Materials', author: 'R.K. Bansal', isbn: '9789382416036', category: 'Engineering', publisher: 'Laxmi Publications', publishedYear: 2018, edition: '7th', shelfLocation: 'L1-05', totalCopies: 6, description: 'A comprehensive textbook on strength of materials for mechanical and civil engineering students.' },
+  { title: 'Engineering Mechanics: Statics', author: 'Russell Hibbeler', isbn: '9780133918922', category: 'Engineering', publisher: 'Pearson', publishedYear: 2015, edition: '14th', shelfLocation: 'L1-06', totalCopies: 5, description: 'Principles of statics — force systems, equilibrium, structures, friction.' },
+  { title: 'Fluid Mechanics', author: 'Frank White', isbn: '9780073398273', category: 'Engineering', publisher: 'McGraw-Hill', publishedYear: 2015, edition: '8th', shelfLocation: 'L1-07', totalCopies: 4, description: 'A comprehensive fluid mechanics textbook — viscous flow, turbulence, boundary layers.' },
+  { title: 'Introduction to Robotics', subtitle: 'Mechanics and Control', author: 'John Craig', isbn: '9780201543612', category: 'Engineering', publisher: 'Pearson', publishedYear: 2004, edition: '3rd', shelfLocation: 'L1-08', totalCopies: 3, description: 'Kinematics, dynamics, and control of robot manipulators.' },
+  { title: 'Digital Electronics: Principles and Applications', author: 'Roger Tokheim', isbn: '9780073373775', category: 'Engineering', publisher: 'McGraw-Hill', publishedYear: 2013, edition: '8th', shelfLocation: 'L2-01', totalCopies: 5, description: 'Digital logic, Boolean algebra, flip-flops, counters, and microprocessors.' },
+  { title: 'Programming the Internet of Things', subtitle: 'Building Integrated Device-to-Cloud IoT Solutions', author: 'Andy King', isbn: '9781492081401', category: 'Engineering', publisher: "O'Reilly", publishedYear: 2021, edition: '1st', shelfLocation: 'L2-02', totalCopies: 3, description: 'Building IoT solutions with Python — devices, protocols, data pipelines, and cloud services.' },
+  // ── MANAGEMENT ───────────────────────────────────────────────────────────────
+  { title: 'The Lean Startup', subtitle: "How Today's Entrepreneurs Use Continuous Innovation", author: 'Eric Ries', isbn: '9780307887894', category: 'Management', publisher: 'Crown Business', publishedYear: 2011, edition: '1st', shelfLocation: 'M1-01', totalCopies: 5, description: 'The lean methodology for startups — build, measure, learn, and iterate.' },
+  { title: 'Zero to One', subtitle: 'Notes on Startups, or How to Build the Future', author: 'Peter Thiel, Blake Masters', isbn: '9780804139021', category: 'Management', publisher: 'Crown Business', publishedYear: 2014, edition: '1st', shelfLocation: 'M1-02', totalCopies: 5, description: "Peter Thiel's contrarian take on startup building and innovation." },
+  { title: 'Good to Great', subtitle: "Why Some Companies Make the Leap and Others Don't", author: 'Jim Collins', isbn: '9780066620992', category: 'Management', publisher: 'HarperBusiness', publishedYear: 2001, edition: '1st', shelfLocation: 'M1-03', totalCopies: 4, description: 'Research on what it takes for a company to go from good to great performance.' },
+  { title: 'The Intelligent Investor', subtitle: 'The Definitive Book on Value Investing', author: 'Benjamin Graham', isbn: '9780060555665', category: 'Management', publisher: 'HarperCollins', publishedYear: 2006, edition: 'Revised', shelfLocation: 'M1-04', totalCopies: 4, description: 'The definitive guide to value investing — the bible of all serious investors.' },
+  { title: 'Principles of Economics', author: 'N. Gregory Mankiw', isbn: '9781305585126', category: 'Management', publisher: 'Cengage', publishedYear: 2015, edition: '7th', shelfLocation: 'M1-05', totalCopies: 6, description: 'The most widely used economics textbook — supply, demand, markets, macroeconomics.' },
+  { title: 'Rich Dad Poor Dad', subtitle: 'What the Rich Teach Their Kids About Money', author: 'Robert Kiyosaki', isbn: '9781612680194', category: 'Management', publisher: 'Plata Publishing', publishedYear: 2011, edition: 'Revised', shelfLocation: 'M1-06', totalCopies: 6, description: 'The classic personal finance book — assets vs. liabilities and financial independence.' },
+  { title: 'Marketing Management', author: 'Philip Kotler, Kevin Lane Keller', isbn: '9780133856460', category: 'Management', publisher: 'Pearson', publishedYear: 2015, edition: '15th', shelfLocation: 'M1-07', totalCopies: 5, description: 'The authoritative guide to marketing management — segmentation, positioning, branding, digital marketing.' },
+  { title: "The Innovator's Dilemma", subtitle: 'When New Technologies Cause Great Firms to Fail', author: 'Clayton Christensen', isbn: '9781633691780', category: 'Management', publisher: 'Harvard Business Review Press', publishedYear: 2016, edition: 'Revised', shelfLocation: 'M2-01', totalCopies: 4, description: 'Why disruptive innovations cause established companies to fail — the classic business strategy book.' },
+  { title: 'Thinking, Fast and Slow', author: 'Daniel Kahneman', isbn: '9780374533557', category: 'Management', publisher: 'Farrar, Straus and Giroux', publishedYear: 2011, edition: '1st', shelfLocation: 'M2-02', totalCopies: 6, description: "Nobel laureate Kahneman's exploration of the two systems of thinking." },
+  { title: 'Nudge', subtitle: 'Improving Decisions About Health, Wealth, and Happiness', author: 'Richard Thaler, Cass Sunstein', isbn: '9780143115267', category: 'Management', publisher: 'Penguin Books', publishedYear: 2009, edition: 'Revised', shelfLocation: 'M2-02', totalCopies: 4, description: 'How small changes in choice architecture can lead to better decisions — the classic behavioral economics book.' },
+  { title: 'Financial Management', author: 'Prasanna Chandra', isbn: '9780071333634', category: 'Management', publisher: 'McGraw-Hill', publishedYear: 2019, edition: '10th', shelfLocation: 'M2-03', totalCopies: 5, description: 'A comprehensive financial management textbook — capital budgeting, working capital, cost of capital.' },
+  { title: 'Human Resource Management', author: 'Gary Dessler', isbn: '9780134741000', category: 'Management', publisher: 'Pearson', publishedYear: 2017, edition: '15th', shelfLocation: 'M2-04', totalCopies: 4, description: 'Recruiting, training, appraising, and retaining employees — HRM theory and practice.' },
+  // ── NON-FICTION ──────────────────────────────────────────────────────────────
+  { title: 'Sapiens: A Brief History of Humankind', author: 'Yuval Noah Harari', isbn: '9780062316097', category: 'Non-Fiction', publisher: 'Harper', publishedYear: 2015, edition: '1st', shelfLocation: 'N1-01', totalCopies: 8, description: 'The sweeping history of Homo sapiens — cognitive revolution, agriculture, industrialization, and the future.' },
+  { title: 'Atomic Habits', subtitle: 'An Easy and Proven Way to Build Good Habits and Break Bad Ones', author: 'James Clear', isbn: '9780735211292', category: 'Non-Fiction', publisher: 'Avery', publishedYear: 2018, edition: '1st', shelfLocation: 'N1-02', totalCopies: 9, description: 'The 1% better every day philosophy — how tiny habits compound into remarkable results.' },
+  { title: 'The Power of Habit', subtitle: 'Why We Do What We Do in Life and Business', author: 'Charles Duhigg', isbn: '9780812981605', category: 'Non-Fiction', publisher: 'Random House', publishedYear: 2012, edition: '1st', shelfLocation: 'N1-03', totalCopies: 5, description: 'The science of habit formation — how to change habits in our lives and organizations.' },
+  { title: 'Deep Work', subtitle: 'Rules for Focused Success in a Distracted World', author: 'Cal Newport', isbn: '9781455586691', category: 'Non-Fiction', publisher: 'Grand Central Publishing', publishedYear: 2016, edition: '1st', shelfLocation: 'N1-04', totalCopies: 6, description: 'How to cultivate deep focus and produce high-quality work in an age of distraction.' },
+  { title: "Man's Search for Meaning", author: 'Viktor Frankl', isbn: '9780807014271', category: 'Non-Fiction', publisher: 'Beacon Press', publishedYear: 2006, edition: 'Special', shelfLocation: 'N1-05', totalCopies: 5, description: "Viktor Frankl's memoir of survival in Nazi concentration camps and his logotherapy theory." },
+  { title: 'Steve Jobs', author: 'Walter Isaacson', isbn: '9781451648539', category: 'Non-Fiction', publisher: 'Simon and Schuster', publishedYear: 2011, edition: '1st', shelfLocation: 'N1-06', totalCopies: 5, description: 'The authorized biography of Steve Jobs — the man who put the apple in Apple Computer.' },
+  { title: 'Elon Musk', subtitle: 'Tesla, SpaceX, and the Quest for a Fantastic Future', author: 'Ashlee Vance', isbn: '9780062301239', category: 'Non-Fiction', publisher: 'Ecco', publishedYear: 2015, edition: '1st', shelfLocation: 'N1-07', totalCopies: 5, description: 'The biography of Elon Musk — from South Africa to Tesla, SpaceX, and SolarCity.' },
+  { title: 'The 7 Habits of Highly Effective People', subtitle: 'Powerful Lessons in Personal Change', author: 'Stephen Covey', isbn: '9781982137274', category: 'Non-Fiction', publisher: 'Simon and Schuster', publishedYear: 2020, edition: '30th Anniversary', shelfLocation: 'N1-08', totalCopies: 6, description: 'Seven principles for personal and professional effectiveness.' },
+  { title: 'How to Win Friends and Influence People', author: 'Dale Carnegie', isbn: '9780671027032', category: 'Non-Fiction', publisher: 'Simon and Schuster', publishedYear: 1998, edition: 'Revised', shelfLocation: 'N2-01', totalCopies: 6, description: 'The classic human relations book — timeless principles for influencing people.' },
+  { title: 'Homo Deus', subtitle: 'A Brief History of Tomorrow', author: 'Yuval Noah Harari', isbn: '9780062464316', category: 'Non-Fiction', publisher: 'Harper', publishedYear: 2017, edition: '1st', shelfLocation: 'N2-02', totalCopies: 5, description: 'What lies ahead for humanity — immortality, artificial intelligence, and the future of consciousness.' },
+  { title: 'The Subtle Art of Not Giving a F*ck', subtitle: 'A Counterintuitive Approach to Living a Good Life', author: 'Mark Manson', isbn: '9780062457714', category: 'Non-Fiction', publisher: 'HarperOne', publishedYear: 2016, edition: '1st', shelfLocation: 'N2-03', totalCopies: 5, description: 'A counterintuitive self-help book — choosing what to care about and letting go of the rest.' },
+  // ── HISTORY ──────────────────────────────────────────────────────────────────
+  { title: 'Guns, Germs, and Steel', subtitle: 'The Fates of Human Societies', author: 'Jared Diamond', isbn: '9780393317558', category: 'History', publisher: 'Norton', publishedYear: 1999, edition: '1st', shelfLocation: 'O1-01', totalCopies: 5, description: 'Why some civilizations conquered others — geography, biology, and the course of history.' },
+  { title: 'The Rise and Fall of the Third Reich', subtitle: 'A History of Nazi Germany', author: 'William Shirer', isbn: '9781451651683', category: 'History', publisher: 'Simon and Schuster', publishedYear: 2011, edition: 'Classic', shelfLocation: 'O1-02', totalCopies: 3, description: "The most comprehensive account of Nazi Germany — from Hitler's rise to the final defeat." },
+  { title: 'The Silk Roads', subtitle: 'A New History of the World', author: 'Peter Frankopan', isbn: '9781101946329', category: 'History', publisher: 'Knopf', publishedYear: 2015, edition: '1st', shelfLocation: 'O1-03', totalCopies: 4, description: 'A new history of the world through the lens of the ancient trade routes.' },
+  { title: "A People's History of the United States", author: 'Howard Zinn', isbn: '9780060838652', category: 'History', publisher: 'Harper Perennial', publishedYear: 2005, edition: 'Modern Classic', shelfLocation: 'O1-04', totalCopies: 4, description: 'American history from the perspective of ordinary people — workers, women, Native Americans.' },
+  { title: 'India: A History', author: 'John Keay', isbn: '9780802145727', category: 'History', publisher: 'Grove Press', publishedYear: 2010, edition: 'Revised', shelfLocation: 'O1-05', totalCopies: 4, description: 'A comprehensive readable history of the Indian subcontinent from prehistory to the present day.' },
+  { title: 'The Discovery of India', author: 'Jawaharlal Nehru', isbn: '9780195623598', category: 'History', publisher: 'Oxford University Press', publishedYear: 1994, edition: '1st', shelfLocation: 'O1-06', totalCopies: 4, description: "Nehru's magisterial account of Indian history, culture, and civilization." },
+  // ── PHILOSOPHY ───────────────────────────────────────────────────────────────
+  { title: 'Meditations', author: 'Marcus Aurelius', isbn: '9780140449334', category: 'Philosophy', publisher: 'Penguin Classics', publishedYear: 2006, edition: 'Penguin Classics', shelfLocation: 'P1-01', totalCopies: 6, description: 'The personal journal of Roman Emperor Marcus Aurelius — the cornerstone of Stoic philosophy.' },
+  { title: 'The Republic', author: 'Plato', isbn: '9780199535712', category: 'Philosophy', publisher: 'Oxford University Press', publishedYear: 2008, edition: 'Classics', shelfLocation: 'P1-02', totalCopies: 4, description: "Plato's classic dialogue on justice, society, and the ideal state." },
+  { title: 'Nicomachean Ethics', author: 'Aristotle', isbn: '9780872204645', category: 'Philosophy', publisher: 'Hackett', publishedYear: 1999, edition: 'Revised', shelfLocation: 'P1-03', totalCopies: 3, description: "Aristotle's systematic study of virtue, pleasure, and the good life." },
+  { title: 'Being and Time', author: 'Martin Heidegger', isbn: '9780061575594', category: 'Philosophy', publisher: 'Harper Perennial', publishedYear: 2008, edition: 'Classic', shelfLocation: 'P1-04', totalCopies: 3, description: "Heidegger's magnum opus on the nature of being, existence, and time." },
+  { title: 'The Problems of Philosophy', author: 'Bertrand Russell', isbn: '9780195888188', category: 'Philosophy', publisher: 'Oxford University Press', publishedYear: 2001, edition: 'Classic', shelfLocation: 'P1-05', totalCopies: 4, description: 'An accessible introduction to the central questions of philosophy — knowledge, reality, matter, mind.' },
+  // ── FICTION ──────────────────────────────────────────────────────────────────
+  { title: '1984', author: 'George Orwell', isbn: '9780451524935', category: 'Fiction', publisher: 'Signet Classic', publishedYear: 1977, edition: 'Classic', shelfLocation: 'Q1-01', totalCopies: 8, description: 'A chilling dystopian vision of a totalitarian society — Big Brother, Newspeak, and Room 101.' },
+  { title: 'Brave New World', author: 'Aldous Huxley', isbn: '9780060850524', category: 'Fiction', publisher: 'Harper Perennial', publishedYear: 2006, edition: 'Classic', shelfLocation: 'Q1-02', totalCopies: 5, description: 'A disturbing vision of a future where happiness is manufactured and individuality suppressed.' },
+  { title: "The Hitchhiker's Guide to the Galaxy", author: 'Douglas Adams', isbn: '9780345391803', category: 'Fiction', publisher: 'Del Rey', publishedYear: 1995, edition: 'Classic', shelfLocation: 'Q1-03', totalCopies: 6, description: "The hilarious sci-fi comedy classic — Arthur Dent's improbable journey through the universe." },
+  { title: 'Dune', author: 'Frank Herbert', isbn: '9780441013593', category: 'Fiction', publisher: 'Ace Books', publishedYear: 2019, edition: 'Classic', shelfLocation: 'Q1-04', totalCopies: 5, description: 'The epic science fiction masterpiece — desert politics, religion, ecology, and power on Arrakis.' },
+  { title: "Ender's Game", author: 'Orson Scott Card', isbn: '9780812550702', category: 'Fiction', publisher: 'Tor Books', publishedYear: 1994, edition: 'Revised', shelfLocation: 'Q1-05', totalCopies: 6, description: 'A brilliant child is trained to command a fleet against alien invaders — a military sci-fi classic.' },
+  { title: 'The Martian', author: 'Andy Weir', isbn: '9780553418026', category: 'Fiction', publisher: 'Crown', publishedYear: 2014, edition: '1st', shelfLocation: 'Q1-06', totalCopies: 7, description: 'An astronaut stranded on Mars must survive using his knowledge of science and engineering.' },
+  { title: 'Project Hail Mary', author: 'Andy Weir', isbn: '9780593135204', category: 'Fiction', publisher: 'Ballantine Books', publishedYear: 2021, edition: '1st', shelfLocation: 'Q1-07', totalCopies: 6, description: 'A lone astronaut wakes up with no memory — and must save both Earth and an alien civilization.' },
+  { title: 'Neuromancer', author: 'William Gibson', isbn: '9780441569595', category: 'Fiction', publisher: 'Ace Books', publishedYear: 2000, edition: 'Classic', shelfLocation: 'Q1-08', totalCopies: 4, description: 'The seminal cyberpunk novel that defined the genre — hackers, AI, and a dystopian future.' },
+  { title: 'Foundation', author: 'Isaac Asimov', isbn: '9780553293357', category: 'Fiction', publisher: 'Bantam', publishedYear: 1991, edition: 'Classic', shelfLocation: 'Q1-09', totalCopies: 5, description: 'A mathematician predicts the fall of civilization and sets out to shorten the dark ages.' },
+  { title: 'The Alchemist', author: 'Paulo Coelho', isbn: '9780061122415', category: 'Fiction', publisher: 'HarperOne', publishedYear: 2006, edition: 'Classic', shelfLocation: 'Q1-10', totalCopies: 7, description: "A young shepherd's journey across the desert in search of his Personal Legend." },
+  { title: 'Animal Farm', author: 'George Orwell', isbn: '9780451526342', category: 'Fiction', publisher: 'Signet Classic', publishedYear: 1996, edition: 'Classic', shelfLocation: 'Q2-01', totalCopies: 6, description: "Orwell's political allegory of the Russian Revolution." },
+  { title: 'Fahrenheit 451', author: 'Ray Bradbury', isbn: '9781451673319', category: 'Fiction', publisher: 'Simon and Schuster', publishedYear: 2012, edition: 'Classic', shelfLocation: 'Q2-02', totalCopies: 5, description: 'A fireman\'s awakening in a future where books are burned — a classic of dystopian fiction.' },
+  { title: 'The Lord of the Rings', author: 'J.R.R. Tolkien', isbn: '9780544003415', category: 'Fiction', publisher: 'Houghton Mifflin', publishedYear: 2012, edition: '50th Anniversary', shelfLocation: 'Q2-03', totalCopies: 4, description: "The epic fantasy trilogy — Frodo's quest to destroy the One Ring and save Middle-earth." },
+  { title: "Harry Potter and the Philosopher's Stone", author: 'J.K. Rowling', isbn: '9780439708180', category: 'Fiction', publisher: 'Scholastic', publishedYear: 2009, edition: 'Illustrated', shelfLocation: 'Q2-04', totalCopies: 6, description: 'The first book in the beloved Harry Potter series — the boy who lived and the world of Hogwarts.' },
+  { title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', isbn: '9780743273565', category: 'Fiction', publisher: 'Scribner', publishedYear: 2004, edition: 'Classic', shelfLocation: 'Q2-05', totalCopies: 5, description: 'The quintessential American novel of the Jazz Age — wealth, obsession, and the American Dream.' },
+  { title: 'To Kill a Mockingbird', author: 'Harper Lee', isbn: '9780061935466', category: 'Fiction', publisher: 'HarperCollins', publishedYear: 2010, edition: 'Perennial Modern Classics', shelfLocation: 'Q2-06', totalCopies: 5, description: "A young girl's perspective on racial injustice and moral growth in the American South." },
+  { title: 'The Kite Runner', author: 'Khaled Hosseini', isbn: '9781594631931', category: 'Fiction', publisher: 'Riverhead Books', publishedYear: 2003, edition: '1st', shelfLocation: 'Q3-01', totalCopies: 5, description: "A story of friendship and betrayal set against the backdrop of Afghanistan's turbulent history." },
+  { title: 'The God of Small Things', author: 'Arundhati Roy', isbn: '9780812979657', category: 'Fiction', publisher: 'Random House', publishedYear: 1997, edition: '1st', shelfLocation: 'Q3-02', totalCopies: 4, description: 'The story of twins in Kerala — family, caste, forbidden love, and tragedy. Booker Prize winner.' },
+  { title: 'The White Tiger', author: 'Aravind Adiga', isbn: '9781416562603', category: 'Fiction', publisher: 'Free Press', publishedYear: 2008, edition: '1st', shelfLocation: 'Q3-03', totalCopies: 4, description: "Balram Halwai's rise from servant to entrepreneur in modern India — Booker Prize winner." },
+  { title: 'Five Point Someone', subtitle: 'What not to do at IIT', author: 'Chetan Bhagat', isbn: '9788129135476', category: 'Fiction', publisher: 'Rupa Publications', publishedYear: 2004, edition: '1st', shelfLocation: 'Q3-04', totalCopies: 6, description: 'Three friends navigate IIT life — academics, love, and the pursuit of passion over grades.' },
+  // ── LITERATURE ───────────────────────────────────────────────────────────────
+  { title: 'Crime and Punishment', author: 'Fyodor Dostoevsky', isbn: '9780143058144', category: 'Literature', publisher: 'Penguin Classics', publishedYear: 2002, edition: 'Penguin Classics', shelfLocation: 'R1-01', totalCopies: 4, description: "Raskolnikov's psychological torment after committing a murder — Dostoevsky's masterpiece." },
+  { title: 'War and Peace', author: 'Leo Tolstoy', isbn: '9780199232765', category: 'Literature', publisher: 'Oxford University Press', publishedYear: 2010, edition: 'Oxford Classics', shelfLocation: 'R1-02', totalCopies: 3, description: "The sweeping epic of Napoleon's invasion of Russia — Tolstoy's greatest novel." },
+  { title: 'Pride and Prejudice', author: 'Jane Austen', isbn: '9780141439518', category: 'Literature', publisher: 'Penguin Classics', publishedYear: 2002, edition: 'Penguin Classics', shelfLocation: 'R1-03', totalCopies: 5, description: "Jane Austen's witty comedy of manners — Elizabeth Bennet and Mr. Darcy in Regency England." },
+  { title: 'The Brothers Karamazov', author: 'Fyodor Dostoevsky', isbn: '9780374528379', category: 'Literature', publisher: 'Farrar, Straus and Giroux', publishedYear: 2002, edition: 'Classic', shelfLocation: 'R1-04', totalCopies: 3, description: "Dostoevsky's final novel — faith, doubt, family, and parricide in 19th century Russia." },
+  { title: 'Hamlet', author: 'William Shakespeare', isbn: '9780743477123', category: 'Literature', publisher: 'Simon and Schuster', publishedYear: 2003, edition: 'Folger Library', shelfLocation: 'R1-05', totalCopies: 5, description: "Shakespeare's greatest tragedy — the Prince of Denmark's quest for revenge." },
+  { title: 'The Stranger', author: 'Albert Camus', isbn: '9780679720201', category: 'Literature', publisher: 'Vintage', publishedYear: 1989, edition: 'Classic', shelfLocation: 'R1-06', totalCopies: 4, description: "Meursault's detached account of life and murder — Camus's absurdist masterwork." },
+  { title: 'One Hundred Years of Solitude', author: 'Gabriel Garcia Marquez', isbn: '9780060883287', category: 'Literature', publisher: 'HarperCollins', publishedYear: 2006, edition: 'Anniversary', shelfLocation: 'R1-07', totalCopies: 4, description: "The magical realist saga of the Buendia family — Garcia Marquez's Nobel Prize-winning novel." },
+  { title: 'Wuthering Heights', author: 'Emily Bronte', isbn: '9780141439556', category: 'Literature', publisher: 'Penguin Classics', publishedYear: 2002, edition: 'Penguin Classics', shelfLocation: 'R2-01', totalCopies: 3, description: 'The dark and passionate love story of Heathcliff and Catherine on the Yorkshire moors.' },
+  { title: 'The Metamorphosis', author: 'Franz Kafka', isbn: '9780553213690', category: 'Literature', publisher: 'Bantam', publishedYear: 1972, edition: 'Classic', shelfLocation: 'R2-02', totalCopies: 4, description: "Kafka's masterpiece of existential fiction — Gregor Samsa's transformation into a vermin." },
+  // ── PSYCHOLOGY ───────────────────────────────────────────────────────────────
+  { title: 'Introduction to Psychology', author: 'James Kalat', isbn: '9781305271555', category: 'Psychology', publisher: 'Cengage', publishedYear: 2016, edition: '11th', shelfLocation: 'S1-01', totalCopies: 5, description: 'A comprehensive introduction to psychology — behavior, cognition, emotion, development.' },
+  { title: 'Influence: The Psychology of Persuasion', author: 'Robert Cialdini', isbn: '9780062937650', category: 'Psychology', publisher: 'HarperBusiness', publishedYear: 2021, edition: 'New and Expanded', shelfLocation: 'S1-02', totalCopies: 5, description: 'The classic book on the psychology of persuasion — six universal principles of influence.' },
+  { title: 'Flow: The Psychology of Optimal Experience', author: 'Mihaly Csikszentmihalyi', isbn: '9780061339202', category: 'Psychology', publisher: 'HarperCollins', publishedYear: 2008, edition: 'Classic', shelfLocation: 'S1-03', totalCopies: 4, description: 'The psychology of flow states — when we are at our happiest and most creative.' },
+  { title: 'Emotional Intelligence', subtitle: 'Why It Can Matter More Than IQ', author: 'Daniel Goleman', isbn: '9780553383713', category: 'Psychology', publisher: 'Bantam', publishedYear: 2005, edition: '10th Anniversary', shelfLocation: 'S1-04', totalCopies: 5, description: 'How emotional intelligence drives personal and professional success.' },
+  { title: 'Thinking, Fast and Slow', author: 'Daniel Kahneman', isbn: '9780374533557', category: 'Psychology', publisher: 'Farrar, Straus and Giroux', publishedYear: 2011, edition: '1st', shelfLocation: 'S1-05', totalCopies: 6, description: 'The two systems of thought — System 1 (fast, intuitive) and System 2 (slow, deliberate).' },
+  { title: 'Man and His Symbols', author: 'Carl Jung', isbn: '9780440351832', category: 'Psychology', publisher: 'Dell', publishedYear: 1968, edition: '1st', shelfLocation: 'S1-06', totalCopies: 3, description: "Jung's last and most accessible work — an introduction to his theory of symbolism and the unconscious." },
+  // ── COMPETITIVE EXAMS ────────────────────────────────────────────────────────
+  { title: 'GATE 2024 Computer Science and IT', author: 'R.K. Kanodia', isbn: '9789387686946', category: 'Competitive Exams', publisher: 'Engineers Zone', publishedYear: 2023, edition: '2024 Edition', shelfLocation: 'T1-01', totalCopies: 8, description: 'Comprehensive GATE preparation for Computer Science — all subjects with previous year questions.' },
+  { title: 'Quantitative Aptitude for Competitive Examinations', author: 'R.S. Aggarwal', isbn: '9788121924986', category: 'Competitive Exams', publisher: 'S. Chand', publishedYear: 2017, edition: 'Revised', shelfLocation: 'T1-02', totalCopies: 10, description: 'The definitive quantitative aptitude book for all competitive exams — arithmetic, algebra, geometry, DI.' },
+  { title: 'A Modern Approach to Verbal and Non-Verbal Reasoning', author: 'R.S. Aggarwal', isbn: '9789352534449', category: 'Competitive Exams', publisher: 'S. Chand', publishedYear: 2018, edition: 'Revised', shelfLocation: 'T1-03', totalCopies: 8, description: 'Comprehensive reasoning preparation — logical, verbal, and non-verbal reasoning for all competitive exams.' },
+  { title: "Barron's GRE", subtitle: "Barron's Test Prep", author: 'Sharon Green, Ira Wolf', isbn: '9781506264837', category: 'Competitive Exams', publisher: "Barron's Educational Series", publishedYear: 2022, edition: '24th', shelfLocation: 'T1-04', totalCopies: 5, description: 'Comprehensive GRE preparation with full-length practice tests and vocabulary review.' },
+  { title: 'CAT 2024 Quantitative Aptitude', author: 'Arun Sharma', isbn: '9789354244490', category: 'Competitive Exams', publisher: 'McGraw-Hill', publishedYear: 2023, edition: '2024 Edition', shelfLocation: 'T1-05', totalCopies: 6, description: 'Complete CAT preparation — quantitative aptitude, verbal ability, logical reasoning.' },
+  { title: 'UPSC Civil Services Examination Guide', subtitle: 'Indian Polity', author: 'M. Laxmikant', isbn: '9789352600397', category: 'Competitive Exams', publisher: 'McGraw-Hill', publishedYear: 2023, edition: '8th', shelfLocation: 'T1-06', totalCopies: 8, description: 'Indian Polity by Laxmikant — the standard reference for UPSC civil services examination.' },
+  { title: 'Word Power Made Easy', author: 'Norman Lewis', isbn: '9780671741854', category: 'Competitive Exams', publisher: 'Pocket Books', publishedYear: 2014, edition: 'Revised', shelfLocation: 'T1-07', totalCopies: 8, description: 'The classic vocabulary builder — roots, prefixes, suffixes and word relationships.' },
+  { title: 'Objective General English', author: 'S.P. Bakshi', isbn: '9789352039913', category: 'Competitive Exams', publisher: 'Arihant', publishedYear: 2021, edition: 'Revised', shelfLocation: 'T1-08', totalCopies: 8, description: 'Comprehensive English preparation for competitive exams — grammar, vocabulary, comprehension.' },
 ];
 
-// ── USERS DATA ────────────────────────────────────────────────────────────────
 const USERS_DATA = [
-  // Admins
-  { name: 'Admin User',       email: 'admin@library.com',    password: 'Admin@123',    role: 'admin',     studentId: 'ADM001', department: 'Library Administration', phone: '+91-9800000001' },
-  { name: 'Head Librarian',   email: 'librarian@library.com', password: 'Lib@12345',   role: 'librarian', studentId: 'LIB001', department: 'Library Sciences',        phone: '+91-9800000002' },
-  // Students
-  { name: 'Aarav Sharma',     email: 'aarav.sharma@student.edu',    password: 'Student@1', role: 'student', studentId: 'STU2024001', department: 'Computer Science',   phone: '+91-9811001001' },
-  { name: 'Priya Patel',      email: 'priya.patel@student.edu',     password: 'Student@2', role: 'student', studentId: 'STU2024002', department: 'Information Technology', phone: '+91-9811001002' },
-  { name: 'Rohan Verma',      email: 'rohan.verma@student.edu',     password: 'Student@3', role: 'student', studentId: 'STU2024003', department: 'Electronics',        phone: '+91-9811001003' },
-  { name: 'Ananya Singh',     email: 'ananya.singh@student.edu',    password: 'Student@4', role: 'student', studentId: 'STU2024004', department: 'Mathematics',        phone: '+91-9811001004' },
-  { name: 'Vikram Reddy',     email: 'vikram.reddy@student.edu',    password: 'Student@5', role: 'student', studentId: 'STU2024005', department: 'Data Science',       phone: '+91-9811001005' },
-  { name: 'Kavya Nair',       email: 'kavya.nair@student.edu',      password: 'Student@6', role: 'student', studentId: 'STU2024006', department: 'Computer Science',   phone: '+91-9811001006' },
-  { name: 'Arjun Mehta',      email: 'arjun.mehta@student.edu',     password: 'Student@7', role: 'student', studentId: 'STU2024007', department: 'Artificial Intelligence', phone: '+91-9811001007' },
-  { name: 'Ishaan Gupta',     email: 'ishaan.gupta@student.edu',    password: 'Student@8', role: 'student', studentId: 'STU2024008', department: 'Cyber Security',     phone: '+91-9811001008' },
-  { name: 'Pooja Joshi',      email: 'pooja.joshi@student.edu',     password: 'Student@9', role: 'student', studentId: 'STU2024009', department: 'Web Development',    phone: '+91-9811001009' },
-  { name: 'Riya Khanna',      email: 'riya.khanna@student.edu',     password: 'Student@10', role: 'student', studentId: 'STU2024010', department: 'Physics',          phone: '+91-9811001010' },
-  { name: 'Aditya Kumar',     email: 'aditya.kumar@student.edu',    password: 'Student@11', role: 'student', studentId: 'STU2024011', department: 'Computer Science', phone: '+91-9811001011' },
-  { name: 'Meera Iyer',       email: 'meera.iyer@student.edu',      password: 'Student@12', role: 'student', studentId: 'STU2024012', department: 'Data Science',     phone: '+91-9811001012' },
-  { name: 'Karan Bose',       email: 'karan.bose@student.edu',      password: 'Student@13', role: 'student', studentId: 'STU2024013', department: 'Machine Learning', phone: '+91-9811001013' },
-  { name: 'Sneha Chauhan',    email: 'sneha.chauhan@student.edu',   password: 'Student@14', role: 'student', studentId: 'STU2024014', department: 'Information Technology', phone: '+91-9811001014' },
-  { name: 'Dev Pillai',       email: 'dev.pillai@student.edu',      password: 'Student@15', role: 'student', studentId: 'STU2024015', department: 'Electronics',      phone: '+91-9811001015' },
-  { name: 'Tanya Malhotra',   email: 'tanya.malhotra@student.edu',  password: 'Student@16', role: 'student', studentId: 'STU2024016', department: 'Mathematics',      phone: '+91-9811001016' },
-  { name: 'Raj Saxena',       email: 'raj.saxena@student.edu',      password: 'Student@17', role: 'student', studentId: 'STU2024017', department: 'Cloud Computing',  phone: '+91-9811001017' },
-  { name: 'Divya Thakur',     email: 'divya.thakur@student.edu',    password: 'Student@18', role: 'student', studentId: 'STU2024018', department: 'Computer Science', phone: '+91-9811001018' },
-  { name: 'Nikhil Ahuja',     email: 'nikhil.ahuja@student.edu',    password: 'Student@19', role: 'student', studentId: 'STU2024019', department: 'Networking',       phone: '+91-9811001019' },
-  { name: 'Sana Mirza',       email: 'sana.mirza@student.edu',      password: 'Student@20', role: 'student', studentId: 'STU2024020', department: 'Artificial Intelligence', phone: '+91-9811001020' },
-  { name: 'Chirag Rao',       email: 'chirag.rao@student.edu',      password: 'Student@21', role: 'student', studentId: 'STU2024021', department: 'Data Science',     phone: '+91-9811001021' },
-  { name: 'Neha Desai',       email: 'neha.desai@student.edu',      password: 'Student@22', role: 'student', studentId: 'STU2024022', department: 'Web Development',  phone: '+91-9811001022' },
-  { name: 'Siddharth Jain',   email: 'sid.jain@student.edu',        password: 'Student@23', role: 'student', studentId: 'STU2024023', department: 'Machine Learning', phone: '+91-9811001023' },
+  { name: 'Admin User', email: 'admin@library.com', password: 'Admin@123', role: 'admin', studentId: 'ADM001', department: 'Library Administration', phone: '+91-9800000001' },
+  { name: 'Head Librarian', email: 'librarian@library.com', password: 'Lib@12345', role: 'librarian', studentId: 'LIB001', department: 'Library Sciences', phone: '+91-9800000002' },
+  { name: 'Aarav Sharma', email: 'aarav.sharma@student.edu', password: 'Student@1', role: 'student', studentId: 'STU2024001', department: 'Computer Science', phone: '+91-9811001001' },
+  { name: 'Priya Patel', email: 'priya.patel@student.edu', password: 'Student@2', role: 'student', studentId: 'STU2024002', department: 'Information Technology', phone: '+91-9811001002' },
+  { name: 'Rohan Verma', email: 'rohan.verma@student.edu', password: 'Student@3', role: 'student', studentId: 'STU2024003', department: 'Electronics Engineering', phone: '+91-9811001003' },
+  { name: 'Ananya Singh', email: 'ananya.singh@student.edu', password: 'Student@4', role: 'student', studentId: 'STU2024004', department: 'Mathematics', phone: '+91-9811001004' },
+  { name: 'Vikram Reddy', email: 'vikram.reddy@student.edu', password: 'Student@5', role: 'student', studentId: 'STU2024005', department: 'Data Science', phone: '+91-9811001005' },
+  { name: 'Kavya Nair', email: 'kavya.nair@student.edu', password: 'Student@6', role: 'student', studentId: 'STU2024006', department: 'Computer Science', phone: '+91-9811001006' },
+  { name: 'Arjun Mehta', email: 'arjun.mehta@student.edu', password: 'Student@7', role: 'student', studentId: 'STU2024007', department: 'Artificial Intelligence', phone: '+91-9811001007' },
+  { name: 'Ishaan Gupta', email: 'ishaan.gupta@student.edu', password: 'Student@8', role: 'student', studentId: 'STU2024008', department: 'Cyber Security', phone: '+91-9811001008' },
+  { name: 'Pooja Joshi', email: 'pooja.joshi@student.edu', password: 'Student@9', role: 'student', studentId: 'STU2024009', department: 'Web Development', phone: '+91-9811001009' },
+  { name: 'Riya Khanna', email: 'riya.khanna@student.edu', password: 'Student@10', role: 'student', studentId: 'STU2024010', department: 'Physics', phone: '+91-9811001010' },
+  { name: 'Aditya Kumar', email: 'aditya.kumar@student.edu', password: 'Student@11', role: 'student', studentId: 'STU2024011', department: 'Computer Science', phone: '+91-9811001011' },
+  { name: 'Meera Iyer', email: 'meera.iyer@student.edu', password: 'Student@12', role: 'student', studentId: 'STU2024012', department: 'Data Science', phone: '+91-9811001012' },
+  { name: 'Karan Bose', email: 'karan.bose@student.edu', password: 'Student@13', role: 'student', studentId: 'STU2024013', department: 'Machine Learning', phone: '+91-9811001013' },
+  { name: 'Sneha Chauhan', email: 'sneha.chauhan@student.edu', password: 'Student@14', role: 'student', studentId: 'STU2024014', department: 'Information Technology', phone: '+91-9811001014' },
+  { name: 'Dev Pillai', email: 'dev.pillai@student.edu', password: 'Student@15', role: 'student', studentId: 'STU2024015', department: 'Electronics Engineering', phone: '+91-9811001015' },
+  { name: 'Tanya Malhotra', email: 'tanya.malhotra@student.edu', password: 'Student@16', role: 'student', studentId: 'STU2024016', department: 'Mathematics', phone: '+91-9811001016' },
+  { name: 'Raj Saxena', email: 'raj.saxena@student.edu', password: 'Student@17', role: 'student', studentId: 'STU2024017', department: 'Cloud Computing', phone: '+91-9811001017' },
+  { name: 'Divya Thakur', email: 'divya.thakur@student.edu', password: 'Student@18', role: 'student', studentId: 'STU2024018', department: 'Computer Science', phone: '+91-9811001018' },
+  { name: 'Nikhil Ahuja', email: 'nikhil.ahuja@student.edu', password: 'Student@19', role: 'student', studentId: 'STU2024019', department: 'Networking', phone: '+91-9811001019' },
+  { name: 'Sana Mirza', email: 'sana.mirza@student.edu', password: 'Student@20', role: 'student', studentId: 'STU2024020', department: 'Artificial Intelligence', phone: '+91-9811001020' },
+  { name: 'Chirag Rao', email: 'chirag.rao@student.edu', password: 'Student@21', role: 'student', studentId: 'STU2024021', department: 'Data Science', phone: '+91-9811001021' },
 ];
 
-// ── SEED FUNCTION ─────────────────────────────────────────────────────────────
 async function seed() {
   try {
-    dns.setServers(['8.8.8.8', '1.1.1.1']);
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('✅ MongoDB connected');
+    const uri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/library';
+    console.log('\n📚 Library Management System — Database Seeder');
+    console.log('──────────────────────────────────────────────');
+    console.log('🔌 Connecting to MongoDB...');
+    await mongoose.connect(uri);
+    console.log('✅ Connected\n');
 
-    // ── 1. Seed Categories ─────────────────────────────────────────────────────
-    console.log('🌱 Seeding categories...');
-    const categoryDocs = [];
-    for (const cat of CATEGORIES) {
-      const doc = await Category.findOneAndUpdate(
-        { name: cat.name },
-        cat,
-        { upsert: true, new: true }
-      );
-      categoryDocs.push(doc);
+    console.log('🗑️  Clearing existing data...');
+    await Promise.all([
+      Book.deleteMany({}), User.deleteMany({}), Reservation.deleteMany({}),
+      Category.deleteMany({}), Notification.deleteMany({}), ActivityLog.deleteMany({}),
+    ]);
+
+    console.log('📂 Seeding categories...');
+    const cats = await Category.insertMany(CATEGORIES);
+    console.log('   ✓ ' + cats.length + ' categories');
+
+    console.log('📖 Seeding books...');
+    const bookDocs = BOOKS_DATA.map(b => {
+      const total = b.totalCopies || randInt(2, 8);
+      const issued = randInt(0, Math.floor(total * 0.4));
+      const reserved = randInt(0, Math.min(2, total - issued));
+      const available = Math.max(0, total - issued - reserved);
+      return { ...b, totalCopies: total, availableCopies: available, issuedCopies: issued, reservedCopies: reserved, borrowCount: randInt(5, 120), language: b.language || 'English', isActive: true, coverImage: '' };
+    });
+    const books = await Book.insertMany(bookDocs);
+    console.log('   ✓ ' + books.length + ' books');
+
+    console.log('👥 Seeding users...');
+    const userDocs = await Promise.all(USERS_DATA.map(async u => ({ ...u, password: await bcrypt.hash(u.password, 10), isActive: true, borrowingLimit: u.role === 'student' ? 5 : 10, currentBorrowCount: 0 })));
+    const users = await User.insertMany(userDocs);
+    console.log('   ✓ ' + users.length + ' users');
+
+    console.log('📋 Seeding reservations...');
+    const students = users.filter(u => u.role === 'student');
+    const STATUSES = ['pending', 'approved', 'issued', 'returned', 'cancelled', 'overdue'];
+    const WEIGHTS = [0.10, 0.15, 0.25, 0.35, 0.10, 0.05];
+    const wStatus = () => { let r = Math.random(), c = 0; for (let i = 0; i < STATUSES.length; i++) { c += WEIGHTS[i]; if (r < c) return STATUSES[i]; } return 'returned'; };
+    const resDocs = [];
+    for (let i = 0; i < 250; i++) {
+      const user = rand(students), book = rand(books), status = wStatus(), created = daysAgo(randInt(1, 180));
+      const issueDate = ['issued', 'returned', 'overdue'].includes(status) ? new Date(created.getTime() + randInt(1, 3) * 86400000) : undefined;
+      const dueDate = issueDate ? new Date(issueDate.getTime() + 14 * 86400000) : undefined;
+      const returnDate = status === 'returned' ? new Date((dueDate || created).getTime() - randInt(-3, 10) * 86400000) : undefined;
+      const fine = status === 'overdue' ? { amount: randInt(5, 50), paid: false } : (returnDate && dueDate && returnDate > dueDate) ? { amount: randInt(5, 25), paid: Math.random() > 0.5 } : { amount: 0, paid: true };
+      resDocs.push({ user: user._id, book: book._id, status, reservationDate: created, issueDate, dueDate, returnDate, renewalCount: status === 'issued' ? randInt(0, 2) : 0, fine, createdAt: created });
     }
-    console.log(`   ✓ ${categoryDocs.length} categories`);
+    const savedRes = await Reservation.insertMany(resDocs);
+    console.log('   ✓ ' + savedRes.length + ' reservations');
 
-    // ── 2. Seed Books ──────────────────────────────────────────────────────────
-    console.log('🌱 Seeding books...');
-    const bookDocs = [];
-    for (let i = 0; i < BOOKS_DATA.length; i++) {
-      const b = BOOKS_DATA[i];
-      const borrowCount = randInt(0, 120);
-      const issuedCopies = Math.min(randInt(0, 2), b.totalCopies - 1);
-      const reservedCopies = Math.min(randInt(0, 1), b.totalCopies - issuedCopies - 1);
-      const availableCopies = b.totalCopies - issuedCopies - reservedCopies;
-
-      // Picsum cover image (deterministic by seed index)
-      const coverImage = `https://picsum.photos/seed/${200 + i}/400/560`;
-
-      const doc = await Book.findOneAndUpdate(
-        { isbn: b.isbn },
-        {
-          ...b,
-          availableCopies: Math.max(0, availableCopies),
-          reservedCopies,
-          issuedCopies,
-          borrowCount,
-          coverImage,
-        },
-        { upsert: true, new: true }
-      );
-      bookDocs.push(doc);
-    }
-    console.log(`   ✓ ${bookDocs.length} books`);
-
-    // ── 3. Seed Users ──────────────────────────────────────────────────────────
-    console.log('🌱 Seeding users...');
-    const userDocs = [];
-    for (const u of USERS_DATA) {
-      // Check if user exists to avoid re-hashing password
-      let doc = await User.findOne({ email: u.email }).select('+password');
-      if (!doc) {
-        doc = await User.create(u);
-      }
-      userDocs.push(doc);
-    }
-    console.log(`   ✓ ${userDocs.length} users`);
-
-    // ── 4. Seed Reservations ───────────────────────────────────────────────────
-    console.log('🌱 Seeding reservations...');
-    const students = userDocs.filter(u => u.role === 'student');
-    const admin = userDocs.find(u => u.role === 'admin') || userDocs[0];
-
-    const statuses = ['pending', 'approved', 'issued', 'returned', 'cancelled'];
-    let reservationCount = 0;
-
-    for (const student of students) {
-      // Each student gets 6–12 reservations
-      const count = randInt(6, 12);
-      const usedBooks = new Set();
-
-      for (let i = 0; i < count; i++) {
-        let book;
-        let attempts = 0;
-        do {
-          book = rand(bookDocs);
-          attempts++;
-        } while (usedBooks.has(book._id.toString()) && attempts < 20);
-
-        if (usedBooks.has(book._id.toString())) continue;
-        usedBooks.add(book._id.toString());
-
-        const status = rand(statuses);
-        const daysBack = randInt(1, 180);
-        const reservationDate = daysAgo(daysBack);
-
-        const doc = {
-          user:  student._id,
-          book:  book._id,
-          status,
-          reservationDate,
-          approvedBy: admin._id,
-        };
-
-        if (['approved', 'issued', 'returned'].includes(status)) {
-          doc.issueDate = new Date(reservationDate.getTime() + 2 * 86400000);
-          doc.dueDate   = new Date(doc.issueDate.getTime() + 14 * 86400000);
-        }
-        if (status === 'returned') {
-          const returnedEarly = Math.random() > 0.2;
-          doc.returnDate = returnedEarly
-            ? new Date(doc.dueDate.getTime() - randInt(1, 10) * 86400000)
-            : new Date(doc.dueDate.getTime() + randInt(1, 7) * 86400000);
-
-          if (doc.returnDate > doc.dueDate) {
-            const days = Math.ceil((doc.returnDate - doc.dueDate) / 86400000);
-            doc.fine = { amount: days * 5, paid: Math.random() > 0.5 };
-          }
-        }
-        if (status === 'issued') {
-          const overdue = Math.random() > 0.7;
-          if (overdue) doc.dueDate = daysAgo(randInt(1, 15));
-          doc.renewalCount = rand([0, 0, 0, 1, 1, 2]);
-          if (doc.renewalCount > 0) doc.renewedAt = new Date(doc.dueDate.getTime() - 7 * 86400000);
-        }
-
-        await Reservation.create(doc);
-        reservationCount++;
-      }
-    }
-    console.log(`   ✓ ${reservationCount} reservations`);
-
-    // ── 5. Seed Wishlists ──────────────────────────────────────────────────────
-    console.log('🌱 Seeding wishlists...');
-    for (const student of students) {
-      const wishlistBooks = [...bookDocs].sort(() => 0.5 - Math.random()).slice(0, randInt(3, 8));
-      await User.findByIdAndUpdate(student._id, {
-        wishlist:       wishlistBooks.map(b => b._id),
-        recentlyViewed: [...bookDocs].sort(() => 0.5 - Math.random()).slice(0, 5).map(b => b._id),
-      });
-    }
-    console.log(`   ✓ wishlists populated`);
-
-    // ── 6. Seed Notifications ──────────────────────────────────────────────────
-    console.log('🌱 Seeding notifications...');
-    const notifTemplates = [
-      { title: 'Reservation Approved 📚', message: 'Your reservation has been approved. Please collect the book from the library within 3 days.', type: 'info' },
-      { title: 'Book Issued ✅', message: 'Your book has been issued. Due date: in 14 days. Please return it on time to avoid fines.', type: 'success' },
-      { title: 'Due Date Reminder ⏰', message: 'Your book is due in 3 days. Please return it on time to avoid a fine.', type: 'warning' },
-      { title: 'Fine Applied ⚠️', message: 'A fine of ₹25 has been applied to your account for overdue return.', type: 'warning' },
-      { title: 'Welcome to Smart Library! 🎉', message: 'Your account is active. Browse our catalog and reserve books today!', type: 'success' },
-      { title: 'Reservation Cancelled', message: 'Your reservation has been cancelled. The book is now available for others.', type: 'error' },
-      { title: 'New Books Added 📖', message: 'New books have been added to the catalog. Check them out!', type: 'info' },
+    console.log('🔔 Seeding notifications...');
+    const msgs = [
+      { title: 'Book Reserved', message: 'Your reservation has been confirmed.', type: 'success' },
+      { title: 'Book Issued', message: 'Your book has been issued. Return by due date.', type: 'info' },
+      { title: 'Due Date Reminder', message: 'Your book is due in 3 days. Please return or renew.', type: 'warning' },
+      { title: 'Book Returned', message: 'Your book has been returned successfully.', type: 'success' },
+      { title: 'Overdue Notice', message: 'Your book is overdue. A fine is being charged.', type: 'error' },
     ];
-    let notifCount = 0;
-    for (const student of students) {
-      const count = randInt(2, 5);
-      for (let i = 0; i < count; i++) {
-        const tmpl = rand(notifTemplates);
-        await Notification.create({
-          user:    student._id,
-          ...tmpl,
-          isRead:  Math.random() > 0.4,
-          createdAt: daysAgo(randInt(0, 30)),
-        });
-        notifCount++;
-      }
-    }
-    console.log(`   ✓ ${notifCount} notifications`);
-
-    // ── 7. Seed Activity Logs ──────────────────────────────────────────────────
-    console.log('🌱 Seeding activity logs...');
-    const actions = [
-      { action: 'USER_REGISTERED',     details: (u) => `${u.name} registered as ${u.role}` },
-      { action: 'BOOK_ADDED',          details: (u) => `New book added by ${u.name}` },
-      { action: 'RESERVATION_CREATED', details: (u) => `${u.name} reserved a book` },
-      { action: 'RESERVATION_ISSUED',  details: (u) => `Book issued to ${u.name}` },
-      { action: 'RESERVATION_RETURNED', details: (u) => `${u.name} returned a book` },
-      { action: 'PROFILE_UPDATED',     details: (u) => `${u.name} updated their profile` },
-    ];
-    let logCount = 0;
-    for (const user of students.slice(0, 10)) {
+    const notifDocs = [];
+    for (const user of students.slice(0, 15)) {
       for (let i = 0; i < randInt(2, 5); i++) {
-        const act = rand(actions);
-        await ActivityLog.create({
-          user:    user._id,
-          action:  act.action,
-          details: act.details(user),
-          createdAt: daysAgo(randInt(0, 60)),
-        });
-        logCount++;
+        const m = rand(msgs);
+        notifDocs.push({ user: user._id, title: m.title, message: m.message, type: m.type, isRead: Math.random() > 0.4, createdAt: daysAgo(randInt(0, 60)) });
       }
     }
-    console.log(`   ✓ ${logCount} activity logs`);
+    const savedNotifs = await Notification.insertMany(notifDocs);
+    console.log('   ✓ ' + savedNotifs.length + ' notifications');
+
+    console.log('📝 Seeding activity logs...');
+    const ACTS = [
+      { action: 'RESERVATION_CREATED', d: function (u) { return u.name + ' created a reservation'; } },
+      { action: 'RESERVATION_RETURNED', d: function (u) { return u.name + ' returned a book'; } },
+      { action: 'RESERVATION_ISSUED', d: function (u) { return 'Book issued to ' + u.name; } },
+      { action: 'USER_LOGGED_IN', d: function (u) { return u.name + ' logged in'; } },
+      { action: 'RESERVATION_APPROVED', d: function (u) { return 'Reservation approved for ' + u.name; } },
+      { action: 'BOOK_RENEWED', d: function (u) { return u.name + ' renewed a book'; } },
+    ];
+    const logDocs = [];
+    for (const user of users.slice(2)) {
+      for (let i = 0; i < randInt(3, 8); i++) {
+        const a = rand(ACTS);
+        logDocs.push({ user: user._id, action: a.action, details: a.d(user), createdAt: daysAgo(randInt(0, 90)) });
+      }
+    }
+    const savedLogs = await ActivityLog.insertMany(logDocs);
+    console.log('   ✓ ' + savedLogs.length + ' activity logs');
 
     console.log('\n🎉 Database seeded successfully!');
-    console.log('─────────────────────────────────────');
-    console.log('🔑 Admin Login:');
-    console.log('   Email: admin@library.com');
-    console.log('   Password: Admin@123');
-    console.log('\n🔑 Librarian Login:');
-    console.log('   Email: librarian@library.com');
-    console.log('   Password: Lib@12345');
-    console.log('\n🔑 Sample Student Login:');
-    console.log('   Email: aarav.sharma@student.edu');
-    console.log('   Password: Student@1');
-    console.log('─────────────────────────────────────\n');
-
+    console.log('──────────────────────────────────────────────');
+    console.log('📚 Books:         ' + books.length);
+    console.log('📂 Categories:    ' + cats.length);
+    console.log('👥 Users:         ' + users.length + ' (' + students.length + ' students)');
+    console.log('📋 Reservations:  ' + savedRes.length);
+    console.log('──────────────────────────────────────────────');
+    console.log('\n🔑 Login Credentials:');
+    console.log('   Admin:     admin@library.com       / Admin@123');
+    console.log('   Librarian: librarian@library.com   / Lib@12345');
+    console.log('   Student:   aarav.sharma@student.edu / Student@1');
+    console.log('──────────────────────────────────────────────\n');
     process.exit(0);
   } catch (err) {
-    console.error('❌ Seed error:', err.message);
+    console.error('\n❌ Seed error:', err.message);
+    if (err.code === 11000) console.error('   Duplicate key — check ISBN uniqueness.');
     process.exit(1);
   }
 }

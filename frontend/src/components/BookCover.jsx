@@ -60,6 +60,17 @@ const PALETTE = {
   "Artificial Intelligence": ["#0f0c29", "#302b63"],
   "Computer Science":        ["#1a1a2e", "#16213e"],
   "Data Science":            ["#093028", "#237a57"],
+  // ── New categories matching the seeded data ──────────────────────────────────
+  "Web Development":         ["#06b6d4", "#0284c7"],
+  "Databases":               ["#14b8a6", "#0f766e"],
+  "Networking":              ["#22c55e", "#15803d"],
+  "Cyber Security":          ["#ef4444", "#991b1b"],
+  "Cloud Computing":         ["#f59e0b", "#b45309"],
+  "Engineering":             ["#f97316", "#c2410c"],
+  "Management":              ["#84cc16", "#4d7c0f"],
+  "Literature":              ["#d946ef", "#a21caf"],
+  "Psychology":              ["#fb923c", "#c2410c"],
+  "Competitive Exams":       ["#0ea5e9", "#0369a1"],
   "Other":                   ["#373b44", "#4286f4"],
   _default:                  ["#6366f1", "#8b5cf6"],
 };
