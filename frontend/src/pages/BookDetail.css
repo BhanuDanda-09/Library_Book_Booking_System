@@ -32,7 +32,19 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
   object-fit: cover;
+  object-position: center top;
   aspect-ratio: 400/560;
+  display: block;
+}
+/* Placeholder fills the same slot as the cover image */
+.book-detail-cover-ph,
+.book-detail-cover-ph.bk-placeholder,
+.book-detail-cover-ph.bk-shimmer-wrap {
+  width: 100%;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  aspect-ratio: 400/560;
+  overflow: hidden;
 }
 .book-detail-avail-badge {
   position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);

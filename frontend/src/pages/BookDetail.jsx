@@ -5,11 +5,10 @@ import { useAuth } from "../context/AuthContext";
 import { Tag, Tooltip, Modal } from "antd";
 import { HeartOutlined, HeartFilled, ArrowLeftOutlined, BookOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import BookCard from "../components/BookCard";
+import BookCover from "../components/BookCover";
 import API from "../services/api";
 import toast from "react-hot-toast";
 import "./BookDetail.css";
-
-const BACKEND = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
 
 
 const statusColor = { pending: "gold", approved: "blue", issued: "purple", returned: "green", cancelled: "red", overdue: "volcano" };
@@ -77,10 +76,6 @@ export default function BookDetail() {
     });
   };
 
-  const coverUrl = book?.coverImage
-    ? (book.coverImage.startsWith("/uploads") ? `${BACKEND}${book.coverImage}` : book.coverImage)
-    : `https://picsum.photos/seed/${id?.slice(-6)}/400/560`;
-
   if (loading) return (
     <div className="book-detail-page page-wrapper">
       <div className="book-detail-skeleton">
@@ -112,11 +107,10 @@ export default function BookDetail() {
         <div className="book-detail-card">
           {/* Cover */}
           <div className="book-detail-cover-wrap">
-            <img
-              src={coverUrl}
-              alt={book.title}
-              className="book-detail-cover"
-              onError={e => { e.target.src = `https://picsum.photos/seed/${book.isbn}/400/560`; }}
+            <BookCover
+              book={book}
+              imgClassName="book-detail-cover"
+              className="book-detail-cover-ph"
             />
             <div className={`book-detail-avail-badge ${available ? "avail" : "unavail"}`}>
               {available ? `✓ ${book.availableCopies} Available` : "✗ Unavailable"}

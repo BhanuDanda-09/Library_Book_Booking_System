@@ -2,10 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
 import { HeartOutlined, HeartFilled } from "@ant-design/icons";
+import BookCover from "./BookCover";
 import "./BookCard.css";
-
-const BACKEND = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
-
 
 export default function BookCard({ book }) {
   const navigate    = useNavigate();
@@ -13,10 +11,6 @@ export default function BookCard({ book }) {
   const { wishlist, toggleWishlist }   = useLibrary();
 
   const inWishlist = wishlist?.some(w => (w._id || w) === book._id);
-
-  const coverUrl = book.coverImage
-    ? (book.coverImage.startsWith("/uploads") ? `${BACKEND}${book.coverImage}` : book.coverImage)
-    : `https://picsum.photos/seed/${book._id?.slice(-6) || "book"}/400/560`;
 
   const handleWishlist = (e) => {
     e.stopPropagation();
@@ -28,14 +22,13 @@ export default function BookCard({ book }) {
     <div className="book-card" onClick={() => navigate(`/book/${book._id}`)}>
       {/* Cover Image */}
       <div className="book-card-cover">
-        <img
-          src={coverUrl}
-          alt={book.title}
-          loading="lazy"
-          onError={e => { e.target.src = `https://picsum.photos/seed/${book.isbn || "lib"}/400/560`; }}
+        <BookCover
+          book={book}
+          imgClassName="book-card-img"
+          className="book-card-cover-fill"
         />
 
-        {/* Overlay on hover */}
+        {/* Hover overlay */}
         <div className="book-card-overlay">
           <button className="book-card-view-btn">View Details</button>
         </div>

@@ -4,6 +4,7 @@ import { useLibrary } from "../context/LibraryContext";
 import { useAuth } from "../context/AuthContext";
 import { Tag, Tabs } from "antd";
 import EmptyState from "../components/ui/EmptyState";
+import BookCover from "../components/BookCover";
 import "./MyBookings.css";
 
 const STATUS_COLOR = {
@@ -15,7 +16,6 @@ const STATUS_COLOR = {
   overdue:   { tag: "volcano", emoji: "🔴" },
 };
 
-const BACKEND = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
 
 
 export default function MyBookings() {
@@ -94,9 +94,6 @@ export default function MyBookings() {
       ) : (
         <div className="bookings-list">
           {filteredBookings.map(booking => {
-            const cover = booking.book?.coverImage
-              ? (booking.book.coverImage.startsWith("/uploads") ? `${BACKEND}${booking.book.coverImage}` : booking.book.coverImage)
-              : `https://picsum.photos/seed/${booking.book?._id?.slice(-6) || "b"}/400/560`;
             const daysLeft = getDaysLeft(booking.dueDate);
             const isOverdue = daysLeft !== null && daysLeft < 0;
             const dueSoon   = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3;
@@ -104,13 +101,14 @@ export default function MyBookings() {
             return (
               <div key={booking._id} className={`booking-card ${isOverdue ? "overdue" : ""}`}>
                 {/* Cover */}
-                <img
-                  src={cover}
-                  alt={booking.book?.title}
-                  className="booking-cover"
-                  onClick={() => navigate(`/book/${booking.book?._id}`)}
-                  onError={e => { e.target.src = "https://picsum.photos/seed/default/400/560"; }}
-                />
+                <div className="booking-cover-wrap">
+                  <BookCover
+                    book={booking.book}
+                    imgClassName="booking-cover"
+                    className="booking-cover-ph"
+                    onClick={() => navigate(`/book/${booking.book?._id}`)}
+                  />
+                </div>
 
                 {/* Details */}
                 <div className="booking-info">
