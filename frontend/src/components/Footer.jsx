@@ -1,36 +1,44 @@
-import { Layout } from "antd";
 import { Link } from "react-router-dom";
 import "./Footer.css";
 
 export default function Footer() {
+  const year = new Date().getFullYear();
   return (
-    <footer className="library-footer">
-      <div className="footer-content">
-        <div className="footer-section brand-info">
-          <h3 className="footer-brand">📚 Smart Library</h3>
-          <p className="footer-desc">
-            A modern, digital solution for reserving, borrowing, and exploring our rich book catalog. Join us in cultivating knowledge and sharing stories.
-          </p>
+    <footer className="footer">
+      <div className="footer-inner">
+        <div className="footer-top">
+          {/* Brand */}
+          <div className="footer-brand">
+            <Link to="/" className="footer-logo">📚 SmartLibrary</Link>
+            <p className="footer-tagline">
+              Your modern library management system. Discover, reserve, and manage books with ease.
+            </p>
+          </div>
+          {/* Links */}
+          <div className="footer-links-group">
+            <div className="footer-col">
+              <h4>Library</h4>
+              <Link to="/catalog">Browse Catalog</Link>
+              <Link to="/catalog?available=true">Available Books</Link>
+              <Link to="/register">Join Library</Link>
+            </div>
+            <div className="footer-col">
+              <h4>Account</h4>
+              <Link to="/login">Sign In</Link>
+              <Link to="/register">Register</Link>
+              <Link to="/profile">My Profile</Link>
+              <Link to="/my-bookings">My Bookings</Link>
+            </div>
+          </div>
         </div>
-        <div className="footer-section footer-links">
-          <h4>Explore</h4>
-          <ul>
-            <li><Link to="/">Home</Link></li>
-            <li><Link to="/catalog">Book Catalog</Link></li>
-            <li><Link to="/login">Sign In</Link></li>
-            <li><Link to="/register">Create Account</Link></li>
-          </ul>
+        <div className="footer-bottom">
+          <p>© {year} SmartLibrary. Built with ❤️ for learners everywhere.</p>
+          <div className="footer-badges">
+            <span className="footer-badge">📚 88+ Books</span>
+            <span className="footer-badge">👤 25+ Members</span>
+            <span className="footer-badge">🏷️ 15 Categories</span>
+          </div>
         </div>
-        <div className="footer-section footer-hours">
-          <h4>Desk Hours</h4>
-          <p>Monday - Friday: 8:00 AM - 8:00 PM</p>
-          <p>Saturday: 9:00 AM - 5:00 PM</p>
-          <p>Sunday: Closed</p>
-        </div>
-      </div>
-      <div className="footer-bottom">
-        <p>&copy; {new Date().getFullYear()} Smart Library. All rights reserved.</p>
-        <p className="footer-subtext">Built with React, Ant Design & MERN Stack</p>
       </div>
     </footer>
   );

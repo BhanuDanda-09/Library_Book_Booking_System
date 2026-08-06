@@ -1,254 +1,243 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useLibrary } from "../context/LibraryContext";
 import { useAuth } from "../context/AuthContext";
-import { demoBooks } from "../services/demoData";
+import { Tag, Tooltip, Modal } from "antd";
+import { HeartOutlined, HeartFilled, ArrowLeftOutlined, BookOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import BookCard from "../components/BookCard";
 import API from "../services/api";
-import { Row, Col, Tag, Button, Table, Typography, Space, Card, Spin, Alert, Modal, Descriptions } from "antd";
-import { ArrowLeftOutlined, BookOutlined, UserOutlined, CalendarOutlined, GlobalOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
+import toast from "react-hot-toast";
 import "./BookDetail.css";
 
-const { Title, Text, Paragraph } = Typography;
+const BACKEND = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
+
+
+const statusColor = { pending: "gold", approved: "blue", issued: "purple", returned: "green", cancelled: "red", overdue: "volcano" };
 
 export default function BookDetail() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const { createReservation } = useLibrary();
-  const { isAuthenticated, user } = useAuth();
+  const { id }        = useParams();
+  const navigate      = useNavigate();
+  const { isAuthenticated, isStudent, isStaff, user } = useAuth();
+  const { createReservation, wishlist, toggleWishlist, trackRecentlyViewed, deleteBook } = useLibrary();
 
-  const [book, setBook] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [isReserving, setIsReserving] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [book,    setBook]    = useState(null);
+  const [similar, setSimilar] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [reserving, setReserving] = useState(false);
 
-  // Fetch book details on mount
+  const inWishlist = wishlist?.some(w => (w._id || w) === id);
+
   useEffect(() => {
-    const fetchBookDetail = async () => {
-      if (id && id.startsWith("demo-")) {
-        const found = demoBooks.find((b) => b._id === id);
-        if (found) {
-          setBook(found);
-          setErrorMsg("");
-          setIsLoading(false);
-          return;
-        }
-      }
-
+    const load = async () => {
+      setLoading(true);
       try {
-        setIsLoading(true);
-        const res = await API.get(`/books/${id}`);
-        if (res.data.success) {
-          setBook(res.data.book);
-        } else {
-          setErrorMsg("Book not found.");
+        const [bookRes, simRes] = await Promise.all([
+          API.get(`/books/${id}`),
+          API.get(`/books/${id}/similar`),
+        ]);
+        if (bookRes.data.success) {
+          setBook(bookRes.data.book);
+          if (isAuthenticated) trackRecentlyViewed(id);
         }
-      } catch (err) {
-        console.error("Fetch book detail error:", err);
-        const found = demoBooks.find((b) => b._id === id);
-        if (found) {
-          setBook(found);
-          setErrorMsg("");
-        } else {
-          setErrorMsg(err.response?.data?.message || "Failed to load book details.");
-        }
+        if (simRes.data.success) setSimilar(simRes.data.books);
+      } catch {
+        toast.error("Book not found.");
+        navigate("/catalog");
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
-
-    fetchBookDetail();
+    load();
+    window.scrollTo({ top: 0 });
   }, [id]);
 
-  const handleReserveClick = () => {
-    if (!isAuthenticated) {
-      navigate("/login");
-      return;
-    }
-    setShowConfirmModal(true);
+  const handleReserve = async () => {
+    if (!isAuthenticated) { navigate("/login"); return; }
+    setReserving(true);
+    await createReservation(id);
+    setReserving(false);
   };
 
-  const confirmReservation = async () => {
-    setIsReserving(true);
-    const result = await createReservation(book._id);
-    setIsReserving(false);
-    setShowConfirmModal(false);
-    if (result.success) {
-      navigate("/my-bookings");
-    }
+  const handleWishlist = () => {
+    if (!isAuthenticated) { navigate("/login"); return; }
+    toggleWishlist(id);
   };
 
-  if (isLoading) {
-    return (
-      <div className="detail-loading-wrapper">
-        <Spin size="large" tip="Loading book details..." />
+  const handleDelete = () => {
+    Modal.confirm({
+      title: "Delete this book?",
+      content: "This action is permanent and cannot be undone. All associated reservations may be affected.",
+      okText: "Delete",
+      okButtonProps: { danger: true },
+      cancelText: "Cancel",
+      onOk: async () => {
+        const res = await deleteBook(id);
+        if (res?.success) navigate("/dashboard");
+      },
+    });
+  };
+
+  const coverUrl = book?.coverImage
+    ? (book.coverImage.startsWith("/uploads") ? `${BACKEND}${book.coverImage}` : book.coverImage)
+    : `https://picsum.photos/seed/${id?.slice(-6)}/400/560`;
+
+  if (loading) return (
+    <div className="book-detail-page page-wrapper">
+      <div className="book-detail-skeleton">
+        <div className="skeleton" style={{ width: 280, aspectRatio: "400/560", borderRadius: 14 }} />
+        <div style={{ flex: 1 }}>
+          <div className="skeleton" style={{ height: 36, width: "70%", borderRadius: 8, marginBottom: 16 }} />
+          <div className="skeleton" style={{ height: 20, width: "40%", borderRadius: 6, marginBottom: 12 }} />
+          <div className="skeleton" style={{ height: 16, width: "30%", borderRadius: 6, marginBottom: 32 }} />
+          <div className="skeleton" style={{ height: 100, borderRadius: 10, marginBottom: 24 }} />
+          <div className="skeleton" style={{ height: 48, width: 200, borderRadius: 10 }} />
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (errorMsg || !book) {
-    return (
-      <div className="detail-error-wrapper">
-        <Alert
-          message="Error Loading Book"
-          description={errorMsg || "The book you requested does not exist."}
-          type="error"
-          showIcon
-          action={
-            <Link to="/catalog">
-              <Button size="small" type="primary">Back to Catalog</Button>
-            </Link>
-          }
-        />
-      </div>
-    );
-  }
+  if (!book) return null;
 
-  const isAvailable = book.availableCopies > 0;
-  const isStudent = user?.role === "student";
-
-  // Resolve cover image path
-  const BACKEND_URL = "https://library-book-booking-system.onrender.com";
-  const getCoverUrl = (path) => {
-    if (!path) return `https://placehold.co/300x420/6366f1/ffffff?text=${encodeURIComponent(book.title)}`;
-    if (path.startsWith("/uploads")) {
-      return `${BACKEND_URL}${path}`;
-    }
-    return path;
-  };
+  const available = book.availableCopies > 0;
 
   return (
-    <div className="book-detail-container">
-      {/* Back Button */}
-      <Link to="/catalog" className="back-link">
-        <ArrowLeftOutlined /> Back to Catalog
-      </Link>
+    <div className="book-detail-page animate-fadeInUp">
+      <div className="page-wrapper">
+        {/* Back btn */}
+        <button className="back-btn" onClick={() => navigate(-1)}>
+          <ArrowLeftOutlined /> Back
+        </button>
 
-      <Row gutter={[40, 40]} className="detail-layout-row">
-        {/* Cover Column */}
-        <Col xs={24} md={8} className="detail-cover-col">
-          <Card
-            bordered={false}
-            className="detail-cover-card"
-            cover={
-              <img
-                alt={book.title}
-                src={getCoverUrl(book.coverImage)}
-                className="detail-cover-img"
-                onError={(e) => {
-                  e.target.src = `https://placehold.co/300x420/6366f1/ffffff?text=${encodeURIComponent(book.title)}`;
-                }}
-              />
-            }
-          >
-            <div className={`detail-status-banner ${isAvailable ? "status-in-stock" : "status-out-of-stock"}`}>
-              {isAvailable ? (
-                <span>
-                  <CheckCircleOutlined /> {book.availableCopies} of {book.totalCopies} copies available
-                </span>
-              ) : (
-                <span>
-                  <ExclamationCircleOutlined /> Out of stock
-                </span>
+        {/* Main detail card */}
+        <div className="book-detail-card">
+          {/* Cover */}
+          <div className="book-detail-cover-wrap">
+            <img
+              src={coverUrl}
+              alt={book.title}
+              className="book-detail-cover"
+              onError={e => { e.target.src = `https://picsum.photos/seed/${book.isbn}/400/560`; }}
+            />
+            <div className={`book-detail-avail-badge ${available ? "avail" : "unavail"}`}>
+              {available ? `✓ ${book.availableCopies} Available` : "✗ Unavailable"}
+            </div>
+          </div>
+
+          {/* Info */}
+          <div className="book-detail-info">
+            <div className="book-detail-cats">
+              <Tag color="purple">{book.category}</Tag>
+              {book.language && <Tag>{book.language}</Tag>}
+              {book.edition  && <Tag>Edition: {book.edition}</Tag>}
+            </div>
+
+            <h1 className="book-detail-title">{book.title}</h1>
+            {book.subtitle && <p className="book-detail-subtitle">{book.subtitle}</p>}
+            <p className="book-detail-author">by <strong>{book.author}</strong></p>
+
+            {book.description && (
+              <div className="book-detail-desc">
+                <h3>About this book</h3>
+                <p>{book.description}</p>
+              </div>
+            )}
+
+            {/* Meta grid */}
+            <div className="book-detail-meta">
+              {[
+                { label: "ISBN",        value: book.isbn },
+                { label: "Publisher",   value: book.publisher },
+                { label: "Year",        value: book.publishedYear },
+                { label: "Language",    value: book.language },
+                { label: "Location",    value: book.shelfLocation },
+                { label: "Total Copies", value: book.totalCopies },
+              ].filter(m => m.value).map(m => (
+                <div key={m.label} className="book-meta-item">
+                  <span className="meta-label">{m.label}</span>
+                  <span className="meta-value">{m.value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Inventory row */}
+            <div className="book-inventory-row">
+              <div className="inv-item avail-copies">
+                <span className="inv-val">{book.availableCopies}</span>
+                <span className="inv-label">Available</span>
+              </div>
+              <div className="inv-item">
+                <span className="inv-val">{book.issuedCopies || 0}</span>
+                <span className="inv-label">Issued</span>
+              </div>
+              <div className="inv-item">
+                <span className="inv-val">{book.reservedCopies || 0}</span>
+                <span className="inv-label">Reserved</span>
+              </div>
+              <div className="inv-item">
+                <span className="inv-val">{book.borrowCount || 0}</span>
+                <span className="inv-label">Total Borrows</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="book-detail-actions">
+              {isStudent && (
+                <Tooltip title={!available ? "No copies available" : ""}>
+                  <button
+                    className="reserve-btn"
+                    onClick={handleReserve}
+                    disabled={!available || reserving}
+                  >
+                    {reserving ? <span className="auth-spinner" style={{ borderColor: "rgba(255,255,255,0.3)", borderTopColor: "#fff", width: 18, height: 18 }} />
+                      : <><BookOutlined /> Reserve Book</>}
+                  </button>
+                </Tooltip>
+              )}
+              {!isAuthenticated && (
+                <button className="reserve-btn" onClick={() => navigate("/login")}>
+                  Sign in to Reserve
+                </button>
+              )}
+              <Tooltip title={inWishlist ? "Remove from wishlist" : "Add to wishlist"}>
+                <button
+                  className={`wishlist-btn ${inWishlist ? "active" : ""}`}
+                  onClick={handleWishlist}
+                >
+                  {inWishlist ? <HeartFilled /> : <HeartOutlined />}
+                </button>
+              </Tooltip>
+              {isStaff && (
+                <>
+                  <button
+                    className="edit-btn"
+                    onClick={() => navigate(`/dashboard/edit-book/${id}`)}
+                    title="Edit book"
+                  >
+                    <EditOutlined /> Edit
+                  </button>
+                  <button
+                    className="delete-btn"
+                    onClick={handleDelete}
+                    title="Delete book"
+                  >
+                    <DeleteOutlined /> Delete
+                  </button>
+                </>
               )}
             </div>
-
-            {/* Reserve Button */}
-            {!isAuthenticated || isStudent ? (
-              <Button
-                type="primary"
-                size="large"
-                block
-                disabled={!isAvailable}
-                className="btn-reserve-book"
-                onClick={handleReserveClick}
-              >
-                {!isAvailable ? "Unavailable" : "Reserve This Copy"}
-              </Button>
-            ) : (
-              <Alert
-                message="Librarians cannot request reservations. Switch to a student account to book."
-                type="info"
-                showIcon
-                style={{ marginTop: 16 }}
-              />
-            )}
-          </Card>
-        </Col>
-
-        {/* Info Column */}
-        <Col xs={24} md={16} className="detail-info-col">
-          <Tag color="indigo" className="detail-category-tag">
-            {book.category}
-          </Tag>
-          
-          <Title level={1} className="detail-book-title">{book.title}</Title>
-          <Text type="secondary" className="detail-book-author">
-            <UserOutlined /> by {book.author}
-          </Text>
-
-          {/* Quick Info Grid */}
-          <div className="quick-info-grid">
-            <Card className="qinfo-card" bordered={false}>
-              <Text type="secondary" size="small">ISBN</Text>
-              <Text strong className="qinfo-value">{book.isbn}</Text>
-            </Card>
-            <Card className="qinfo-card" bordered={false}>
-              <Text type="secondary" size="small">Language</Text>
-              <Text strong className="qinfo-value">{book.language}</Text>
-            </Card>
-            <Card className="qinfo-card" bordered={false}>
-              <Text type="secondary" size="small">Published</Text>
-              <Text strong className="qinfo-value">{book.publishedYear || "N/A"}</Text>
-            </Card>
           </div>
+        </div>
 
-          {/* Book Description */}
-          {book.description && (
-            <div className="detail-section">
-              <Title level={4}>About This Book</Title>
-              <Paragraph className="detail-paragraph">{book.description}</Paragraph>
+        {/* Similar Books */}
+        {similar.length > 0 && (
+          <div className="similar-section">
+            <h2 className="similar-title">Similar Books</h2>
+            <div className="similar-grid">
+              {similar.map(b => <BookCard key={b._id} book={b} />)}
             </div>
-          )}
-
-          {/* Technical Details */}
-          <div className="detail-section">
-            <Title level={4}>Bibliographic Details</Title>
-            <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small" className="detail-desc-table">
-              <Descriptions.Item label="Title">{book.title}</Descriptions.Item>
-              <Descriptions.Item label="Author">{book.author}</Descriptions.Item>
-              <Descriptions.Item label="Category">{book.category}</Descriptions.Item>
-              <Descriptions.Item label="ISBN">{book.isbn}</Descriptions.Item>
-              <Descriptions.Item label="Publisher">{book.publisher || "N/A"}</Descriptions.Item>
-              <Descriptions.Item label="Published Year">{book.publishedYear || "N/A"}</Descriptions.Item>
-              <Descriptions.Item label="Language">{book.language}</Descriptions.Item>
-              <Descriptions.Item label="Total Copies">{book.totalCopies}</Descriptions.Item>
-            </Descriptions>
           </div>
-        </Col>
-      </Row>
-
-      {/* Reservation Confirmation Modal */}
-      <Modal
-        title="Confirm Book Reservation"
-        open={showConfirmModal}
-        onOk={confirmReservation}
-        onCancel={() => setShowConfirmModal(false)}
-        confirmLoading={isReserving}
-        okText="Confirm Reservation"
-        cancelText="Cancel"
-      >
-        <Space direction="vertical" size="middle" style={{ width: "100%", padding: "10px 0" }}>
-          <Text>
-            Are you sure you want to request a copy of <strong>{book.title}</strong> by {book.author}?
-          </Text>
-          <Alert
-            message="Your booking will start as pending. You will need to pick up the book from the front desk once approved by a librarian."
-            type="info"
-            showIcon
-          />
-        </Space>
-      </Modal>
+        )}
+      </div>
     </div>
   );
 }

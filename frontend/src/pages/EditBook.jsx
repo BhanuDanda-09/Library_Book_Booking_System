@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useLibrary } from "../context/LibraryContext";
 import API from "../services/api";
-import { Card, Form, Input, InputNumber, Select, Button, Typography, Space, Divider, Alert, Spin } from "antd";
+import { Card, Form, Input, InputNumber, Select, Button, Typography, Space, Divider, Alert, Spin, Row, Col } from "antd";
 import { ArrowLeftOutlined, UploadOutlined, SaveOutlined } from "@ant-design/icons";
 import "./EditBook.css";
 

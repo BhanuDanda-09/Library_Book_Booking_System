@@ -1,76 +1,68 @@
-import { Link } from "react-router-dom";
-import { Card, Tag, Badge, Typography, Space } from "antd";
-import { BookOutlined, UserOutlined } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useLibrary } from "../context/LibraryContext";
+import { HeartOutlined, HeartFilled } from "@ant-design/icons";
 import "./BookCard.css";
 
-const { Title, Text } = Typography;
+const BACKEND = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
+
 
 export default function BookCard({ book }) {
-  const isAvailable = book.availableCopies > 0;
+  const navigate    = useNavigate();
+  const { isAuthenticated, isStudent } = useAuth();
+  const { wishlist, toggleWishlist }   = useLibrary();
 
-  // Resolve cover image path. If it starts with /uploads, prepend the backend host
-  const getCoverUrl = (path) => {
-    if (!path) return `https://placehold.co/240x320/6366f1/ffffff?text=${encodeURIComponent(book.title)}`;
-    if (path.startsWith("/uploads")) {
-      return `https://library-book-booking-system.onrender.com${path}`;
-    }
-    return path;
+  const inWishlist = wishlist?.some(w => (w._id || w) === book._id);
+
+  const coverUrl = book.coverImage
+    ? (book.coverImage.startsWith("/uploads") ? `${BACKEND}${book.coverImage}` : book.coverImage)
+    : `https://picsum.photos/seed/${book._id?.slice(-6) || "book"}/400/560`;
+
+  const handleWishlist = (e) => {
+    e.stopPropagation();
+    if (!isAuthenticated) { navigate("/login"); return; }
+    toggleWishlist(book._id);
   };
 
   return (
-    <Link to={`/book/${book._id}`} className="book-card-link">
-      <Card
-        hoverable
-        className="custom-book-card"
-        cover={
-          <div className="book-card-cover-wrapper">
-            <img
-              alt={book.title}
-              src={getCoverUrl(book.coverImage)}
-              className="book-card-cover"
-              loading="lazy"
-              onError={(e) => {
-                e.target.src = `https://placehold.co/240x320/6366f1/ffffff?text=${encodeURIComponent(book.title)}`;
-              }}
-            />
-            <span className="book-card-badge">
-              <Badge
-                status={isAvailable ? "success" : "error"}
-                text={isAvailable ? `${book.availableCopies} available` : "Out of stock"}
-                style={{
-                  background: isAvailable ? "rgba(16, 185, 129, 0.9)" : "rgba(239, 68, 68, 0.9)",
-                  color: "#fff",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                }}
-              />
-            </span>
-          </div>
-        }
-      >
-        <div className="book-card-content">
-          <Tag color="geekblue" className="book-card-category-tag">
-            {book.category}
-          </Tag>
-          
-          <Title level={5} ellipsis={{ rows: 2 }} className="book-card-title">
-            {book.title}
-          </Title>
-          
-          <Space direction="vertical" size={2} style={{ width: "100%" }}>
-            <Text type="secondary" ellipsis className="book-card-author">
-              <UserOutlined style={{ marginRight: 4 }} />
-              {book.author}
-            </Text>
-            {book.publishedYear && (
-              <Text type="secondary" size="small" className="book-card-meta">
-                <BookOutlined style={{ marginRight: 4 }} />
-                Published: {book.publishedYear}
-              </Text>
-            )}
-          </Space>
+    <div className="book-card" onClick={() => navigate(`/book/${book._id}`)}>
+      {/* Cover Image */}
+      <div className="book-card-cover">
+        <img
+          src={coverUrl}
+          alt={book.title}
+          loading="lazy"
+          onError={e => { e.target.src = `https://picsum.photos/seed/${book.isbn || "lib"}/400/560`; }}
+        />
+
+        {/* Overlay on hover */}
+        <div className="book-card-overlay">
+          <button className="book-card-view-btn">View Details</button>
         </div>
-      </Card>
-    </Link>
+
+        {/* Availability badge */}
+        <div className={`book-card-avail ${book.availableCopies > 0 ? "available" : "unavailable"}`}>
+          {book.availableCopies > 0 ? `${book.availableCopies} available` : "Unavailable"}
+        </div>
+
+        {/* Wishlist button */}
+        {isStudent && (
+          <button
+            className={`book-card-heart ${inWishlist ? "active" : ""}`}
+            onClick={handleWishlist}
+            aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
+          >
+            {inWishlist ? <HeartFilled /> : <HeartOutlined />}
+          </button>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="book-card-body">
+        <span className="book-card-category">{book.category}</span>
+        <h3 className="book-card-title" title={book.title}>{book.title}</h3>
+        <p className="book-card-author">by {book.author}</p>
+      </div>
+    </div>
   );
 }

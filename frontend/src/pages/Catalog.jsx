@@ -1,240 +1,167 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useLibrary } from "../context/LibraryContext";
+import { useAuth } from "../context/AuthContext";
 import BookCard from "../components/BookCard";
-import { demoBooks } from "../services/demoData";
-import { Input, Radio, Switch, Row, Col, Pagination, Spin, Empty, Typography, Space, Button, Select } from "antd";
-import { SearchOutlined, FilterOutlined, ClearOutlined, SortAscendingOutlined } from "@ant-design/icons";
+import EmptyState from "../components/ui/EmptyState";
+import { Select, Pagination, Switch } from "antd";
+import { SearchOutlined, FilterOutlined, AppstoreOutlined, BarsOutlined } from "@ant-design/icons";
 import "./Catalog.css";
 
-const { Title, Text } = Typography;
-const { Option } = Select;
-
-const categories = ["All", "Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Mathematics", "Arts", "Philosophy", "Other"];
+const SORTS = [
+  { value: "-createdAt", label: "Newest First" },
+  { value: "az",         label: "A → Z" },
+  { value: "za",         label: "Z → A" },
+  { value: "mostBorrowed", label: "Most Popular" },
+];
 
 export default function Catalog() {
-  const { books, totalBooks, isLoadingBooks, fetchBooks } = useLibrary();
+  const { books, totalBooks, isLoadingBooks, fetchBooks, categories, fetchCategories } = useLibrary();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search,    setSearch]    = useState(searchParams.get("search") || "");
+  const [category,  setCategory]  = useState(searchParams.get("category") || "All");
+  const [sort,      setSort]      = useState("-createdAt");
+  const [available, setAvailable] = useState(searchParams.get("available") === "true");
+  const [page,      setPage]      = useState(1);
+  const [gridView,  setGridView]  = useState(true);
+  const [searchInput, setSearchInput] = useState(search);
 
-  // Filter States
-  const [searchInput, setSearchInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [availableOnly, setAvailableOnly] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(12);
-  const [sortBy, setSortBy] = useState("title-asc");
+  const PAGE_LIMIT = 12;
 
-  // Load books when filters/pagination change
-  useEffect(() => {
-    fetchBooks({
-      search: searchQuery,
-      category: selectedCategory,
-      available: availableOnly,
-      page: currentPage,
-      limit: pageSize
-    });
-  }, [fetchBooks, searchQuery, selectedCategory, availableOnly, currentPage, pageSize]);
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
-  // Reset filters
-  const handleReset = () => {
-    setSearchInput("");
-    setSearchQuery("");
-    setSelectedCategory("All");
-    setAvailableOnly(false);
-    setSortBy("title-asc");
-    setCurrentPage(1);
+  const loadBooks = useCallback(() => {
+    fetchBooks({ search, category, sort, available, page, limit: PAGE_LIMIT });
+  }, [search, category, sort, available, page, fetchBooks]);
+
+  useEffect(() => { loadBooks(); }, [loadBooks]);
+
+  const handleSearch = e => {
+    e.preventDefault();
+    setSearch(searchInput);
+    setPage(1);
   };
 
-  const handleSearchSubmit = (value) => {
-    setSearchQuery(value);
-    setCurrentPage(1); // Reset to page 1 on new search
+  const handleCategory = (val) => { setCategory(val); setPage(1); };
+  const handleSort     = (val) => { setSort(val);     setPage(1); };
+  const handleAvail    = (val) => { setAvailable(val); setPage(1); };
+  const handleClear    = () => {
+    setSearch(""); setSearchInput(""); setCategory("All");
+    setSort("-createdAt"); setAvailable(false); setPage(1);
   };
 
-  const handleCategoryChange = (e) => {
-    setSelectedCategory(e.target.value);
-    setCurrentPage(1); // Reset to page 1 on category change
-  };
+  const catOptions = [
+    { value: "All", label: "All Categories" },
+    ...(categories || []).map(c => ({ value: c.name, label: `${c.icon || ""} ${c.name}` })),
+  ];
 
-  const handleAvailableToggle = (checked) => {
-    setAvailableOnly(checked);
-    setCurrentPage(1); // Reset to page 1 on availability toggle
-  };
-
-  // Determine active book list (DB vs fallback demo)
-  let activeList = books && books.length > 0 ? books : demoBooks;
-  const isDemo = !(books && books.length > 0);
-
-  // If using demo books, apply search and filters locally
-  if (isDemo) {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      activeList = activeList.filter(
-        (b) =>
-          b.title.toLowerCase().includes(q) ||
-          b.author.toLowerCase().includes(q) ||
-          b.isbn.toLowerCase().includes(q)
-      );
-    }
-    if (selectedCategory && selectedCategory !== "All") {
-      activeList = activeList.filter((b) => b.category === selectedCategory);
-    }
-    if (availableOnly) {
-      activeList = activeList.filter((b) => b.availableCopies > 0);
-    }
-  }
-
-  // Apply Sorting
-  const sortedList = [...activeList].sort((a, b) => {
-    if (sortBy === "title-asc") {
-      return a.title.localeCompare(b.title);
-    }
-    if (sortBy === "title-desc") {
-      return b.title.localeCompare(a.title);
-    }
-    if (sortBy === "year-desc") {
-      return (b.publishedYear || 0) - (a.publishedYear || 0);
-    }
-    if (sortBy === "year-asc") {
-      return (a.publishedYear || 0) - (b.publishedYear || 0);
-    }
-    if (sortBy === "copies-desc") {
-      return b.availableCopies - a.availableCopies;
-    }
-    return 0;
-  });
-
-  // Apply client-side pagination for demo books
-  const finalBooks = isDemo 
-    ? sortedList.slice((currentPage - 1) * pageSize, currentPage * pageSize) 
-    : sortedList;
-
-  const displayCount = isDemo ? sortedList.length : totalBooks;
+  const hasFilters = search || category !== "All" || available;
 
   return (
-    <div className="catalog-container">
-      {/* Page Header */}
-      <div className="catalog-page-header">
+    <div className="catalog-page page-wrapper animate-fadeInUp">
+      {/* Page header */}
+      <div className="catalog-header">
         <div>
-          <Title level={2} className="catalog-title">Explore Our Catalog</Title>
-          <Text type="secondary">
-            {displayCount} book{displayCount !== 1 ? "s" : ""} found in our collection {isDemo && "(Sample Mode)"}
-          </Text>
+          <h1 className="catalog-title">Book Catalog</h1>
+          <p className="catalog-subtitle">
+            {totalBooks > 0 ? `${totalBooks} book${totalBooks !== 1 ? "s" : ""} found` : "Explore our collection"}
+          </p>
         </div>
-        {(searchQuery || selectedCategory !== "All" || availableOnly || sortBy !== "title-asc") && (
-          <Button icon={<ClearOutlined />} onClick={handleReset} className="btn-clear-filters">
-            Clear Filters
-          </Button>
+        <div className="catalog-view-toggle">
+          <button className={`view-btn ${gridView ? "active" : ""}`} onClick={() => setGridView(true)}>
+            <AppstoreOutlined />
+          </button>
+          <button className={`view-btn ${!gridView ? "active" : ""}`} onClick={() => setGridView(false)}>
+            <BarsOutlined />
+          </button>
+        </div>
+      </div>
+
+      {/* Filters bar */}
+      <div className="catalog-filters">
+        {/* Search */}
+        <form className="catalog-search" onSubmit={handleSearch}>
+          <SearchOutlined className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search by title, author, ISBN…"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+          />
+          <button type="submit" className="search-submit-btn">Search</button>
+        </form>
+
+        {/* Category */}
+        <Select
+          value={category}
+          onChange={handleCategory}
+          options={catOptions}
+          style={{ minWidth: 200 }}
+          size="large"
+          showSearch
+          placeholder="All Categories"
+        />
+
+        {/* Sort */}
+        <Select
+          value={sort}
+          onChange={handleSort}
+          options={SORTS}
+          style={{ minWidth: 170 }}
+          size="large"
+        />
+
+        {/* Available only */}
+        <div className="catalog-avail-toggle">
+          <Switch checked={available} onChange={handleAvail} size="small" />
+          <span>Available only</span>
+        </div>
+
+        {/* Clear */}
+        {hasFilters && (
+          <button className="catalog-clear-btn" onClick={handleClear}>
+            ✕ Clear filters
+          </button>
         )}
       </div>
 
-      {/* Catalog Filters Bar */}
-      <div className="catalog-filters-bar">
-        <Row gutter={[16, 16]} align="middle">
-          {/* Search Input */}
-          <Col xs={24} md={10}>
-            <Input.Search
-              placeholder="Search by title, author, or ISBN..."
-              enterButton={<SearchOutlined />}
-              size="large"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onSearch={handleSearchSubmit}
-              allowClear
-            />
-          </Col>
-          
-          {/* Availability & Sorting Switch */}
-          <Col xs={24} md={14} className="col-avail-switch">
-            <Space size="middle" wrap style={{ width: "100%", justifyContent: "flex-end" }}>
-              <Text strong className="filter-label">
-                <FilterOutlined /> Filters & Sorting:
-              </Text>
-              <div className="switch-wrapper">
-                <Switch 
-                  checked={availableOnly} 
-                  onChange={handleAvailableToggle} 
-                  id="available-only-switch"
-                />
-                <label htmlFor="available-only-switch" className="switch-label" style={{ marginRight: 16 }}>
-                  Available Only
-                </label>
-              </div>
-              <Select 
-                value={sortBy} 
-                onChange={setSortBy} 
-                style={{ width: 180 }}
-                placeholder="Sort by"
-                size="middle"
-                suffixIcon={<SortAscendingOutlined />}
-              >
-                <Option value="title-asc">Title: A to Z</Option>
-                <Option value="title-desc">Title: Z to A</Option>
-                <Option value="year-desc">Year: Newest First</Option>
-                <Option value="year-asc">Year: Oldest First</Option>
-                <Option value="copies-desc">Most Copies Available</Option>
-              </Select>
-            </Space>
-          </Col>
-        </Row>
-
-        {/* Category Selector Pills */}
-        <div className="category-scroll-container">
-          <Radio.Group 
-            value={selectedCategory} 
-            onChange={handleCategoryChange} 
-            optionType="button" 
-            buttonStyle="solid"
-            size="middle"
-            className="category-radio-group"
-          >
-            {categories.map((cat) => (
-              <Radio.Button key={cat} value={cat} className="category-radio-btn">
-                {cat}
-              </Radio.Button>
-            ))}
-          </Radio.Group>
-        </div>
-      </div>
-
-      {/* Book Grid Area */}
+      {/* Results */}
       {isLoadingBooks ? (
-        <div className="catalog-loading-wrapper">
-          <Spin size="large" tip="Searching library catalog..." />
+        <div className={`catalog-grid ${!gridView ? "catalog-list" : ""}`}>
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="book-skeleton">
+              <div className="skeleton" style={{ aspectRatio: "400/560", borderRadius: 12 }} />
+              <div className="skeleton" style={{ height: 14, marginTop: 12, borderRadius: 6 }} />
+              <div className="skeleton" style={{ height: 12, marginTop: 8, width: "60%", borderRadius: 6 }} />
+            </div>
+          ))}
         </div>
-      ) : finalBooks.length === 0 ? (
-        <div className="catalog-empty-wrapper">
-          <Empty 
-            description={
-              <Space direction="vertical" size={4}>
-                <Text strong style={{ fontSize: 16 }}>No books matched your criteria</Text>
-                <Text type="secondary">Try adjusting your filters or search terms</Text>
-              </Space>
-            }
-          >
-            <Button type="primary" onClick={handleReset}>Reset All Filters</Button>
-          </Empty>
-        </div>
+      ) : books.length === 0 ? (
+        <EmptyState
+          icon="🔍"
+          title="No books found"
+          description="Try adjusting your filters or search term."
+          action={handleClear}
+          actionLabel="Clear all filters"
+        />
       ) : (
-        <>
-          <Row gutter={[24, 24]} className="catalog-books-grid">
-            {finalBooks.map((book) => (
-              <Col xs={24} sm={12} md={8} lg={6} key={book._id}>
-                <BookCard book={book} />
-              </Col>
-            ))}
-          </Row>
+        <div className={`catalog-grid ${!gridView ? "catalog-list" : ""}`}>
+          {books.map(book => <BookCard key={book._id} book={book} />)}
+        </div>
+      )}
 
-          {/* Catalog Pagination */}
-          <div className="catalog-pagination-wrapper">
-            <Pagination
-              current={currentPage}
-              pageSize={pageSize}
-              total={isDemo ? sortedList.length : totalBooks}
-              onChange={(page) => setCurrentPage(page)}
-              showSizeChanger={false}
-              className="catalog-pagination"
-            />
-          </div>
-        </>
+      {/* Pagination */}
+      {totalBooks > PAGE_LIMIT && (
+        <div className="catalog-pagination">
+          <Pagination
+            current={page}
+            total={totalBooks}
+            pageSize={PAGE_LIMIT}
+            onChange={p => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            showSizeChanger={false}
+            showTotal={(total, range) => `${range[0]}–${range[1]} of ${total} books`}
+          />
+        </div>
       )}
     </div>
   );

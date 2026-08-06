@@ -3,159 +3,172 @@ import { useNavigate } from "react-router-dom";
 import { useLibrary } from "../context/LibraryContext";
 import { useAuth } from "../context/AuthContext";
 import BookCard from "../components/BookCard";
-import { Button, Row, Col, Statistic, Card, Spin, Space, Timeline, Typography } from "antd";
-import { BookOutlined, CheckCircleOutlined, CalendarOutlined, SearchOutlined, BookFilled, CheckOutlined } from "@ant-design/icons";
 import "./Home.css";
 
-const { Text } = Typography;
+const FEATURES = [
+  { icon: "🔍", title: "Smart Search", desc: "Find books by title, author, ISBN, publisher, or category instantly." },
+  { icon: "📅", title: "Easy Reservation", desc: "Reserve books online — librarians approve and prepare your copy." },
+  { icon: "🔔", title: "Due Reminders", desc: "Get notified before your due date. Renew books up to 2 times." },
+  { icon: "📊", title: "Track Everything", desc: "View your borrow history, active loans, wishlist, and fines in one place." },
+];
+
+const STATS = [
+  { value: "88+",  label: "Books",      icon: "📚" },
+  { value: "15",   label: "Categories", icon: "🏷️"  },
+  { value: "25+",  label: "Members",    icon: "👥"  },
+  { value: "14",   label: "Day Loans",  icon: "📅"  },
+];
 
 export default function Home() {
-  const { books, isLoadingBooks, fetchBooks } = useLibrary();
+  const { books, isLoadingBooks, fetchBooks, fetchCategories } = useLibrary();
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchBooks({ limit: 8 }); // Load the latest books
-  }, [fetchBooks]);
+    fetchBooks({ limit: 8 });
+    fetchCategories();
+  }, [fetchBooks, fetchCategories]);
 
-  const totalAvailable = books.reduce((sum, b) => sum + b.availableCopies, 0);
-  // Get new additions (latest 4 books)
-  const newArrivals = books.slice(0, 4);
+  const newArrivals = books.slice(0, 8);
 
-  const handleMyBookingsClick = () => {
-    if (!isAuthenticated) {
-      navigate("/login");
-    } else if (user.role === "librarian") {
-      navigate("/dashboard");
-    } else {
-      navigate("/my-bookings");
-    }
+  const handleCTA = () => {
+    if (!isAuthenticated) return navigate("/catalog");
+    navigate(user.role === "librarian" || user.role === "admin" ? "/dashboard" : "/catalog");
   };
 
   return (
-    <div className="home-container">
-      {/* Hero Section */}
-      <section className="hero-section">
-        <div className="hero-overlay"></div>
-        <div className="hero-content">
-          <p className="hero-eyebrow">Your neighborhood library, online</p>
-          <h1 className="hero-headline">
-            Find your next <em>great read</em>
+    <div className="home-page">
+      {/* ── Hero Section ───────────────────────────────────────────────── */}
+      <section className="hero">
+        <div className="hero-bg-grid" />
+        <div className="hero-orbs">
+          <div className="hero-orb orb-1" />
+          <div className="hero-orb orb-2" />
+          <div className="hero-orb orb-3" />
+        </div>
+        <div className="hero-content animate-fadeInUp">
+          <div className="hero-eyebrow">📚 Your Digital Library</div>
+          <h1 className="hero-title">
+            Discover Your Next
+            <span className="hero-title-accent"> Great Read</span>
           </h1>
-          <p className="hero-sub">
-            Browse our collection, request instant reservations, and pick up at the front desk. Simple, fast, and completely free.
+          <p className="hero-subtitle">
+            Browse 88+ books, reserve in seconds, and enjoy a seamless library experience.
+            From programming classics to timeless fiction — everything in one place.
           </p>
           <div className="hero-actions">
-            <Button
-              type="primary"
-              size="large"
-              className="hero-btn-primary"
-              onClick={() => navigate("/catalog")}
-            >
-              Browse Catalog
-            </Button>
-            <Button
-              size="large"
-              className="hero-btn-secondary"
-              onClick={handleMyBookingsClick}
-            >
-              My Bookings
-            </Button>
+            <button className="hero-btn-primary" onClick={handleCTA}>Browse Catalog</button>
+            <button className="hero-btn-secondary" onClick={() => navigate(isAuthenticated ? "/my-bookings" : "/register")}>
+              {isAuthenticated ? "My Bookings" : "Join Free →"}
+            </button>
           </div>
+        </div>
+
+        {/* Floating stat cards */}
+        <div className="hero-stats">
+          {STATS.map(s => (
+            <div key={s.label} className="hero-stat-card">
+              <span className="hero-stat-icon">{s.icon}</span>
+              <div>
+                <div className="hero-stat-value">{s.value}</div>
+                <div className="hero-stat-label">{s.label}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Stats Cards */}
-      <section className="stats-section">
-        <Row gutter={[24, 24]} justify="center">
-          <Col xs={24} sm={8}>
-            <Card className="stat-card" bordered={false}>
-              <Statistic
-                title="Catalog Size"
-                value={books.length}
-                prefix={<BookOutlined style={{ color: "#6366f1", marginRight: 8 }} />}
-                valueStyle={{ fontWeight: 800, color: "#1f2937" }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Card className="stat-card" bordered={false}>
-              <Statistic
-                title="Available Copies"
-                value={totalAvailable}
-                prefix={<CheckCircleOutlined style={{ color: "#10b981", marginRight: 8 }} />}
-                valueStyle={{ fontWeight: 800, color: "#1f2937" }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Card className="stat-card" bordered={false}>
-              <Statistic
-                title="Borrow Period"
-                value={14}
-                suffix="Days"
-                prefix={<CalendarOutlined style={{ color: "#f59e0b", marginRight: 8 }} />}
-                valueStyle={{ fontWeight: 800, color: "#1f2937" }}
-              />
-            </Card>
-          </Col>
-        </Row>
+      {/* ── New Arrivals ────────────────────────────────────────────────── */}
+      <section className="home-section">
+        <div className="page-wrapper">
+          <div className="section-header">
+            <div>
+              <h2 className="section-title">New Arrivals</h2>
+              <p className="section-sub">Recently added books to our collection</p>
+            </div>
+            <button className="section-link" onClick={() => navigate("/catalog")}>
+              View all books →
+            </button>
+          </div>
+
+          {isLoadingBooks ? (
+            <div className="books-skeleton-grid">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="book-skeleton">
+                  <div className="skeleton" style={{ aspectRatio: "400/560", borderRadius: "12px" }} />
+                  <div className="skeleton" style={{ height: 14, marginTop: 12, borderRadius: 6 }} />
+                  <div className="skeleton" style={{ height: 12, marginTop: 8, width: "70%", borderRadius: 6 }} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="books-grid">
+              {newArrivals.map(book => (
+                <BookCard key={book._id} book={book} />
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
-      {/* New Arrivals Section */}
-      <section className="featured-section">
-        <div className="section-header">
-          <h2 className="section-title">New Arrivals</h2>
-          <Button type="link" size="large" onClick={() => navigate("/catalog")} className="view-all-link">
-            View all books →
-          </Button>
-        </div>
-
-        {isLoadingBooks ? (
-          <div className="home-spinner">
-            <Spin size="large" tip="Loading new books..." />
+      {/* ── Features ─────────────────────────────────────────────────────── */}
+      <section className="home-features">
+        <div className="page-wrapper">
+          <div className="section-header centered">
+            <h2 className="section-title">Everything You Need</h2>
+            <p className="section-sub">A complete library experience built for the modern reader</p>
           </div>
-        ) : newArrivals.length === 0 ? (
-          <Card className="empty-arrival-card">
-            <Text type="secondary">No books currently in catalog. Check back soon!</Text>
-          </Card>
-        ) : (
-          <Row gutter={[24, 24]}>
-            {newArrivals.map((book) => (
-              <Col xs={24} sm={12} md={6} key={book._id}>
-                <BookCard book={book} />
-              </Col>
+          <div className="features-grid">
+            {FEATURES.map(f => (
+              <div key={f.title} className="feature-card">
+                <div className="feature-icon">{f.icon}</div>
+                <h3 className="feature-title">{f.title}</h3>
+                <p className="feature-desc">{f.desc}</p>
+              </div>
             ))}
-          </Row>
-        )}
-      </section>
-
-      {/* How it Works Section */}
-      <section className="how-it-works-section">
-        <h2 className="section-title text-center">How It Works</h2>
-        <div className="timeline-container">
-          <Timeline mode="alternate">
-            <Timeline.Item dot={<SearchOutlined style={{ fontSize: "20px", color: "#6366f1" }} />}>
-              <div className="timeline-block">
-                <h3>1. Search & Discover</h3>
-                <p>Browse through categories or search by title/author in our online catalog to find books you want to read.</p>
-              </div>
-            </Timeline.Item>
-            <Timeline.Item dot={<BookFilled style={{ fontSize: "20px", color: "#10b981" }} />}>
-              <div className="timeline-block">
-                <h3>2. Request Reservation</h3>
-                <p>Select your book and submit a booking request. Librarians will approve and prepare the copy for you.</p>
-              </div>
-            </Timeline.Item>
-            <Timeline.Item dot={<CheckOutlined style={{ fontSize: "20px", color: "#f59e0b" }} />}>
-              <div className="timeline-block">
-                <h3>3. Pick Up & Enjoy</h3>
-                <p>Pick up the issued book at the desk. Keep it for up to 14 days, and return it when you are finished.</p>
-              </div>
-            </Timeline.Item>
-          </Timeline>
+          </div>
         </div>
       </section>
+
+      {/* ── How It Works ────────────────────────────────────────────────── */}
+      <section className="home-section how-it-works">
+        <div className="page-wrapper">
+          <div className="section-header centered">
+            <h2 className="section-title">How It Works</h2>
+            <p className="section-sub">Three simple steps to get your next book</p>
+          </div>
+          <div className="steps-grid">
+            {[
+              { step: "1", icon: "🔍", title: "Search & Discover", desc: "Browse our catalog by title, author, category, or use the smart search to find exactly what you want." },
+              { step: "2", icon: "📋", title: "Reserve Online", desc: "Click Reserve on any available book. The librarian will approve your request and prepare your copy." },
+              { step: "3", icon: "✅", title: "Pick Up & Enjoy", desc: "Get notified when approved. Pick up at the desk and enjoy for up to 14 days. Renew anytime!" },
+            ].map(s => (
+              <div key={s.step} className="step-card">
+                <div className="step-number">{s.step}</div>
+                <div className="step-icon">{s.icon}</div>
+                <h3 className="step-title">{s.title}</h3>
+                <p className="step-desc">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA Banner ───────────────────────────────────────────────────── */}
+      {!isAuthenticated && (
+        <section className="cta-banner">
+          <div className="page-wrapper">
+            <div className="cta-content">
+              <h2 className="cta-title">Ready to start reading?</h2>
+              <p className="cta-sub">Join SmartLibrary today and access 88+ books for free.</p>
+              <div className="cta-actions">
+                <button className="cta-btn-primary" onClick={() => navigate("/register")}>Create Free Account</button>
+                <button className="cta-btn-secondary" onClick={() => navigate("/catalog")}>Browse First</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

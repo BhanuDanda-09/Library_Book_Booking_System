@@ -1,0 +1,18 @@
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules/
+
+# ── Environment Variables ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+
+# ── Uploaded files (use Cloudinary in production) ─────────────────────────────
+uploads/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+
+# ── OS Files ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

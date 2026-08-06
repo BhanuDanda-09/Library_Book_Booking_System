@@ -1,0 +1,9 @@
+.wishlist-page { padding-bottom: var(--space-16); }
+.wishlist-header { margin-bottom: var(--space-6); }
+.wishlist-title { font-size: var(--text-3xl); font-weight: 900; margin: 0 0 4px; }
+.wishlist-sub   { font-size: var(--text-sm); color: var(--color-text-3); margin: 0; }
+.wishlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+  gap: var(--space-5);
+}

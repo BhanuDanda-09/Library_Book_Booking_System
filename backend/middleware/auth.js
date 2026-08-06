@@ -5,25 +5,37 @@ exports.protect = async (req, res, next) => {
   try {
     let token;
 
-    console.log(req.headers.authorization);
-
     if (req.headers.authorization?.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
     }
 
-    console.log("TOKEN:", token);
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Access denied. No token provided.'
+      });
+    }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    console.log("DECODED:", decoded);
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found. Token invalid.'
+      });
+    }
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is deactivated. Contact the library.'
+      });
+    }
 
-    req.user = await User.findById(decoded.id);
-
+    req.user = user;
     next();
   } catch (err) {
-    console.log(err);
-
-    res.status(401).json({
+    return res.status(401).json({
       success: false,
       message: 'Token invalid or expired.'
     });

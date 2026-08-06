@@ -1,90 +1,120 @@
-.book-card-link {
-  display: block;
-  height: 100%;
-}
-
-.custom-book-card {
-  height: 100%;
+.book-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--transition-spring);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--border-color) !important;
-  border-radius: 12px !important;
-  transition: var(--transition-smooth) !important;
+}
+.book-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--color-primary-light);
 }
 
-.custom-book-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-lg) !important;
-  border-color: rgba(99, 102, 241, 0.2) !important;
-}
-
-.custom-book-card .ant-card-cover {
-  margin: 0;
-}
-
-.book-card-cover-wrapper {
-  position: relative;
-  width: 100%;
-  padding-top: 133.33%; /* 3:4 Aspect Ratio for book covers */
-  background: #f8fafc;
-  overflow: hidden;
-}
-
+/* Cover */
 .book-card-cover {
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: relative;
+  aspect-ratio: 400/560;
+  overflow: hidden;
+  background: var(--color-bg-alt);
+}
+.book-card-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.5s ease;
+  transition: transform var(--transition-slow);
 }
+.book-card:hover .book-card-cover img { transform: scale(1.05); }
 
-.custom-book-card:hover .book-card-cover {
-  transform: scale(1.05);
-}
-
-.book-card-badge {
+/* Hover overlay */
+.book-card-overlay {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 10;
-}
-
-.book-card-badge .ant-badge-status-text {
-  margin-left: 4px !important;
-}
-
-.book-card-content {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-}
-
-.book-card-category-tag {
-  align-self: flex-start;
-  margin: 0 !important;
-  font-size: 11px !important;
-  text-transform: uppercase;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-.book-card-title {
-  margin: 0 !important;
-  color: #0f172a;
-  font-weight: 700 !important;
-  font-size: 15px !important;
-  line-height: 1.4 !important;
-  min-height: 42px; /* Holds 2 lines of text */
-}
-
-.book-card-author,
-.book-card-meta {
-  font-size: 13px;
+  inset: 0;
+  background: rgba(99,102,241,0.85);
   display: flex;
   align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+.book-card:hover .book-card-overlay { opacity: 1; }
+.book-card-view-btn {
+  padding: 10px 22px;
+  background: #fff;
+  color: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transform: translateY(8px);
+  transition: transform var(--transition-base);
+}
+.book-card:hover .book-card-view-btn { transform: translateY(0); }
+
+/* Availability badge */
+.book-card-avail {
+  position: absolute;
+  top: 10px; left: 10px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.book-card-avail.available   { background: var(--color-success-bg); color: var(--color-success); }
+.book-card-avail.unavailable { background: var(--color-error-bg);   color: var(--color-error); }
+
+/* Heart button */
+.book-card-heart {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 34px; height: 34px;
+  border-radius: var(--radius-full);
+  background: rgba(255,255,255,0.9);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--color-text-3);
+  transition: all var(--transition-spring);
+  backdrop-filter: blur(4px);
+}
+.book-card-heart:hover { transform: scale(1.2); color: var(--color-error); }
+.book-card-heart.active { color: var(--color-error); }
+
+/* Body */
+.book-card-body {
+  padding: var(--space-4);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.book-card-category {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.book-card-title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+.book-card-author {
+  font-size: var(--text-xs);
+  color: var(--color-text-3);
+  margin: 0;
 }

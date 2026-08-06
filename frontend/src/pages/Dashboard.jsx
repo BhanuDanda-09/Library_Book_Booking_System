@@ -1,390 +1,272 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLibrary } from "../context/LibraryContext";
-import { useNavigate, Link } from "react-router-dom";
-import { demoBooks, demoBookings } from "../services/demoData";
-import { Card, Row, Col, Statistic, Table, Button, Space, Modal, Typography, Spin, Divider, List, Tag } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, BookOutlined, ClockCircleOutlined, SyncOutlined, AlertOutlined, UserOutlined, ArrowRightOutlined, CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { useAuth } from "../context/AuthContext";
+import { Tag, Table, Modal, Select, Input } from "antd";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line, Legend,
+} from "recharts";
+import EmptyState from "../components/ui/EmptyState";
 import "./Dashboard.css";
 
-const { Title, Text } = Typography;
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#14b8a6","#f97316","#84cc16"];
+const STATUS_COLORS = { pending:"gold", approved:"blue", issued:"purple", returned:"green", cancelled:"red", overdue:"volcano" };
+
+function StatCard({ icon, label, value, sub, color = "#6366f1" }) {
+  return (
+    <div className="dash-stat-card" style={{ "--card-color": color }}>
+      <div className="dash-stat-icon">{icon}</div>
+      <div className="dash-stat-body">
+        <div className="dash-stat-value">{value ?? "—"}</div>
+        <div className="dash-stat-label">{label}</div>
+        {sub && <div className="dash-stat-sub">{sub}</div>}
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
-  const {
-    books,
-    bookings,
-    isLoadingBooks,
-    isLoadingBookings,
-    fetchBooks,
-    fetchAllReservations,
-    updateReservationStatus,
-    deleteBook
-  } = useLibrary();
-
+  const { fetchDashboardStats, fetchChartData, fetchAllReservations, fetchRecentActivity,
+          updateReservationStatus, bookings, isLoadingBookings } = useLibrary();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Load latest catalog and reservations
+  const [stats,     setStats]     = useState(null);
+  const [charts,    setCharts]    = useState(null);
+  const [activity,  setActivity]  = useState([]);
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [searchQ,   setSearchQ]   = useState("");
+  const [updating,  setUpdating]  = useState(null);
+
   useEffect(() => {
-    fetchBooks({ limit: 100 });
-    fetchAllReservations("All");
-  }, [fetchBooks, fetchAllReservations]);
+    fetchDashboardStats().then(setStats);
+    fetchChartData().then(setCharts);
+    fetchRecentActivity().then(setActivity);
+    fetchAllReservations();
+  }, []);
 
-  // Determine active datasets (DB vs fallback demo)
-  const isBooksEmpty = !(books && books.length > 0);
-  const isBookingsEmpty = !(bookings && bookings.length > 0);
+  const handleStatusChange = async (reservationId, newStatus) => {
+    setUpdating(reservationId);
+    await updateReservationStatus(reservationId, newStatus);
+    fetchAllReservations(statusFilter === "All" ? undefined : statusFilter);
+    fetchDashboardStats().then(setStats);
+    setUpdating(null);
+  };
 
-  const activeBooks = !isBooksEmpty ? books : demoBooks;
-  const activeBookings = !isBookingsEmpty ? bookings : demoBookings;
-
-  const isDemo = isBooksEmpty || isBookingsEmpty;
-
-  // Statistics calculation
-  const totalBooksCount = activeBooks.length;
-  const totalCopiesCount = activeBooks.reduce((sum, b) => sum + (b.totalCopies || 0), 0);
-  const availableCopiesCount = activeBooks.reduce((sum, b) => sum + (b.availableCopies || 0), 0);
-  
-  const pendingCount = activeBookings.filter((b) => b.status === "pending").length;
-  const approvedCount = activeBookings.filter((b) => b.status === "approved").length;
-  const issuedCount = activeBookings.filter((b) => b.status === "issued").length;
-  const returnedCount = activeBookings.filter((b) => b.status === "returned").length;
-  const cancelledCount = activeBookings.filter((b) => b.status === "cancelled").length;
-
-  const reservedCount = pendingCount + approvedCount;
-  
-  // Count unique active student borrow profiles
-  const activeStudentEmails = new Set(
-    activeBookings
-      .filter((b) => ["pending", "approved", "issued"].includes(b.status))
-      .map((b) => b.user?.email || (b.user && b.user.email) || "unknown")
-  );
-  activeStudentEmails.delete("unknown");
-  const activeStudentsCount = activeStudentEmails.size > 0 ? activeStudentEmails.size : 2;
-
-  const handleDeleteBook = (book) => {
-    Modal.confirm({
-      title: "Remove Book from Catalogue?",
-      icon: <ExclamationCircleOutlined />,
-      content: `Are you sure you want to remove "${book.title}"? This will hide the book from catalog searches.`,
-      okText: "Yes, Remove",
-      okType: "danger",
-      cancelText: "Cancel",
-      onOk: async () => {
-        const res = await deleteBook(book._id);
-        if (res.success) {
-          fetchBooks({ limit: 100 });
-        }
-      }
+  // Build monthly chart data
+  const monthlyData = (() => {
+    if (!charts) return [];
+    const map = {};
+    charts.monthlyIssued?.forEach(d => {
+      const key = `${MONTH_NAMES[d._id.month - 1]} ${d._id.year}`;
+      if (!map[key]) map[key] = { month: key, issued: 0, returned: 0 };
+      map[key].issued = d.count;
     });
-  };
-
-  const handleStatusChange = async (id, status) => {
-    const res = await updateReservationStatus(id, status);
-    if (res.success) {
-      fetchAllReservations("All");
-    }
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
+    charts.monthlyReturned?.forEach(d => {
+      const key = `${MONTH_NAMES[d._id.month - 1]} ${d._id.year}`;
+      if (!map[key]) map[key] = { month: key, issued: 0, returned: 0 };
+      map[key].returned = d.count;
     });
-  };
+    return Object.values(map).slice(-8);
+  })();
 
-  const getStatusTag = (status) => {
-    const statusMap = {
-      pending: { color: "warning", label: "Pending" },
-      approved: { color: "processing", label: "Approved" },
-      issued: { color: "success", label: "Issued" },
-      returned: { color: "default", label: "Returned" },
-      cancelled: { color: "error", label: "Cancelled" },
-    };
-    const config = statusMap[status] || { color: "default", label: status };
-    return <Tag color={config.color}>{config.label.toUpperCase()}</Tag>;
-  };
+  const categoryData = charts?.categoryDistribution?.slice(0, 8).map(c => ({
+    name: c._id, value: c.count,
+  })) || [];
 
-  // Recent reservation columns for Dashboard view
-  const reservationColumns = [
-    {
-      title: "Borrower",
-      dataIndex: "user",
-      key: "user",
-      render: (user) => <strong>{user?.name || "Student"}</strong>
-    },
-    {
-      title: "Book",
-      dataIndex: "book",
-      key: "book",
-      render: (book) => <span>{book?.title || "Removed Book"}</span>
-    },
-    {
-      title: "Date Requested",
-      dataIndex: "reservationDate",
-      key: "reservationDate",
-      render: (date) => formatDate(date)
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status) => getStatusTag(status)
-    },
-    {
-      title: "Actions",
-      key: "actions",
-      render: (_, record) => (
-        <Space>
-          {record.status === "pending" && (
-            <>
-              <Button type="primary" size="small" onClick={() => handleStatusChange(record._id, "approved")}>
-                Approve
-              </Button>
-              <Button danger size="small" onClick={() => handleStatusChange(record._id, "cancelled")}>
-                Reject
-              </Button>
-            </>
-          )}
-          {record.status === "approved" && (
-            <Button type="primary" size="small" style={{ backgroundColor: "#10b981", borderColor: "#10b981" }} onClick={() => handleStatusChange(record._id, "issued")}>
-              Issue
-            </Button>
-          )}
-          {record.status === "issued" && (
-            <Button type="primary" size="small" style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b" }} onClick={() => handleStatusChange(record._id, "returned")}>
-              Return
-            </Button>
-          )}
-        </Space>
+  const columns = [
+    { title: "Member", dataIndex: "user", key: "user",
+      render: u => (
+        <div className="dt-user-cell">
+          <div className="dt-user-avatar">{u?.name?.[0] || "?"}</div>
+          <div>
+            <div className="dt-user-name">{u?.name || "—"}</div>
+            <div className="dt-user-id">{u?.studentId || u?.email}</div>
+          </div>
+        </div>
       )
-    }
+    },
+    { title: "Book", dataIndex: "book", key: "book",
+      render: b => (
+        <div>
+          <div className="dt-book-title">{b?.title || "—"}</div>
+          <div className="dt-book-author">{b?.author}</div>
+        </div>
+      )
+    },
+    { title: "Status", dataIndex: "status", key: "status",
+      render: s => <Tag color={STATUS_COLORS[s]} style={{ borderRadius: 99, fontWeight: 600 }}>{s?.toUpperCase()}</Tag>
+    },
+    { title: "Due Date", dataIndex: "dueDate", key: "dueDate",
+      render: d => d ? (
+        <span style={{ color: new Date(d) < new Date() ? "var(--color-error)" : "var(--color-text-2)", fontWeight: 500 }}>
+          {new Date(d).toLocaleDateString()}
+        </span>
+      ) : "—"
+    },
+    { title: "Fine", dataIndex: "fine", key: "fine",
+      render: f => f?.amount > 0 ? <span style={{ color: "var(--color-error)", fontWeight: 600 }}>₹{f.amount}</span> : "—"
+    },
+    { title: "Action", key: "action",
+      render: (_, row) => (
+        <Select
+          value={row.status}
+          size="small"
+          style={{ width: 130 }}
+          loading={updating === row._id}
+          onChange={val => handleStatusChange(row._id, val)}
+          options={["pending","approved","issued","returned","cancelled","overdue"].map(s => ({ value: s, label: s }))}
+        />
+      )
+    },
   ];
 
-  // Books catalogue columns
-  const bookColumns = [
-    {
-      title: "Cover",
-      dataIndex: "coverImage",
-      key: "coverImage",
-      render: (path, record) => {
-        const coverUrl = path ? (path.startsWith("/uploads") ? `https://library-book-booking-system.onrender.com${path}` : path) : `https://placehold.co/40x55/6366f1/ffffff?text=Book`;
-        return (
-          <img
-            src={coverUrl}
-            alt={record.title}
-            className="dash-book-thumb"
-            onError={(e) => {
-              e.target.src = `https://placehold.co/40x55/6366f1/ffffff?text=Book`;
-            }}
-          />
-        );
-      }
-    },
-    {
-      title: "Title & Author",
-      key: "title_author",
-      render: (_, record) => (
-        <Space direction="vertical" size={1}>
-          <strong>{record.title}</strong>
-          <Text type="secondary" style={{ fontSize: "12px" }}>by {record.author}</Text>
-        </Space>
-      )
-    },
-    {
-      title: "Category",
-      dataIndex: "category",
-      key: "category"
-    },
-    {
-      title: "ISBN",
-      dataIndex: "isbn",
-      key: "isbn"
-    },
-    {
-      title: "Copies (Avail/Total)",
-      key: "copies",
-      render: (_, record) => (
-        <Text strong={record.availableCopies === 0} type={record.availableCopies === 0 ? "danger" : "secondary"}>
-          {record.availableCopies} / {record.totalCopies}
-        </Text>
-      )
-    },
-    {
-      title: "Actions",
-      key: "actions",
-      render: (_, record) => (
-        <Space>
-          <Button icon={<EditOutlined />} size="small" onClick={() => navigate(`/edit-book/${record._id}`)}>
-            Edit
-          </Button>
-          <Button icon={<DeleteOutlined />} danger size="small" onClick={() => handleDeleteBook(record)}>
-            Delete
-          </Button>
-        </Space>
-      )
-    }
-  ];
+  const filteredBookings = bookings.filter(b => {
+    const matchStatus = statusFilter === "All" || b.status === statusFilter.toLowerCase();
+    const matchSearch = !searchQ ||
+      b.user?.name?.toLowerCase().includes(searchQ.toLowerCase()) ||
+      b.book?.title?.toLowerCase().includes(searchQ.toLowerCase());
+    return matchStatus && matchSearch;
+  });
 
   return (
-    <div className="dashboard-container">
-      <div className="dash-header">
+    <div className="dashboard-page page-wrapper animate-fadeInUp">
+      {/* Welcome */}
+      <div className="dash-welcome">
         <div>
-          <Title level={2} className="dash-title">Librarian Control Center</Title>
-          <Text type="secondary">
-            Manage lending requests, add catalog additions, and view statistics. {isDemo && "(Rendering demo fallbacks)"}
-          </Text>
+          <h1 className="dash-title">Dashboard 📊</h1>
+          <p className="dash-subtitle">Welcome back, <strong>{user?.name}</strong> — here's what's happening today.</p>
+        </div>
+        <div className="dash-welcome-actions">
+          <button className="dash-action-btn primary" onClick={() => navigate("/dashboard/reservations")}>
+            📋 Manage Reservations
+          </button>
+          <button className="dash-action-btn" onClick={() => navigate("/dashboard/add-book")}>
+            + Add Book
+          </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <Row gutter={[24, 24]} className="dash-stats-row">
-        <Col xs={24} sm={12} md={6}>
-          <Card className="dash-stat-card bg-blue" bordered={false}>
-            <Statistic
-              title="Total Catalogued Books"
-              value={totalBooksCount}
-              prefix={<BookOutlined style={{ color: "#3b82f6" }} />}
-              loading={isLoadingBooks}
-            />
-            <div style={{ marginTop: 8 }}><Text type="secondary">Copies: {totalCopiesCount}</Text></div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card className="dash-stat-card bg-success" bordered={false}>
-            <Statistic
-              title="Available Copies"
-              value={availableCopiesCount}
-              prefix={<CheckCircleOutlined style={{ color: "#10b981" }} />}
-              loading={isLoadingBooks}
-            />
-            <div style={{ marginTop: 8 }}><Text type="secondary">In Stock: {Math.round((availableCopiesCount/totalCopiesCount)*100 || 100)}%</Text></div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card className="dash-stat-card bg-warning" bordered={false}>
-            <Statistic
-              title="Reserved Copies"
-              value={reservedCount}
-              prefix={<ClockCircleOutlined style={{ color: "#f59e0b" }} />}
-              loading={isLoadingBookings}
-            />
-            <div style={{ marginTop: 8 }}><Text type="secondary">Pending Approval: {pendingCount}</Text></div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card className="dash-stat-card bg-purple" bordered={false}>
-            <Statistic
-              title="Active Students"
-              value={activeStudentsCount}
-              prefix={<UserOutlined style={{ color: "#8b5cf6" }} />}
-              loading={isLoadingBookings}
-            />
-            <div style={{ marginTop: 8 }}><Text type="secondary">Borrowers Index</Text></div>
-          </Card>
-        </Col>
-      </Row>
+      {/* Stats row */}
+      <div className="dash-stats-grid">
+        <StatCard icon="📚" label="Total Books"     value={stats?.totalBooks}      color="#6366f1" />
+        <StatCard icon="👥" label="Students"        value={stats?.totalUsers}      color="#8b5cf6" />
+        <StatCard icon="📋" label="Pending"         value={stats?.pendingCount}    color="#f59e0b" />
+        <StatCard icon="📖" label="Issued"          value={stats?.issuedCount}     color="#3b82f6" />
+        <StatCard icon="✅" label="Returned"        value={stats?.returnedCount}   color="#10b981" />
+        <StatCard icon="⚠️" label="Overdue"         value={stats?.overdueCount}    color="#ef4444" sub={stats?.overdueCount > 0 ? "Needs attention!" : undefined} />
+        <StatCard icon="📦" label="Available Copies" value={stats?.availableCopies} color="#14b8a6" />
+        <StatCard icon="💰" label="Total Fines"     value={stats?.totalFinesCollected ? `₹${stats.totalFinesCollected}` : "₹0"} color="#f97316" />
+      </div>
 
-      <Row gutter={[24, 24]} style={{ marginTop: 8 }}>
-        {/* Recent Pending/Approved Reservations Table */}
-        <Col xs={24} lg={16}>
-          <Space direction="vertical" style={{ width: "100%" }} size="large">
-            {/* Recent lending requests needing librarian actions */}
-            <Card 
-              title="Recent Reservation Lending Actions" 
-              bordered={false} 
-              className="dash-catalog-card"
-              extra={<Link to="/manage-reservations" className="view-all-bookings-link">Manage All <ArrowRightOutlined /></Link>}
-            >
-              {isLoadingBookings ? (
-                <div className="dash-loading"><Spin size="large" tip="Loading reservations..." /></div>
-              ) : activeBookings.length === 0 ? (
-                <Empty description="No reservations requested yet." />
-              ) : (
-                <Table
-                  dataSource={activeBookings.filter((b) => b.status === "pending" || b.status === "approved" || b.status === "issued").slice(0, 5)}
-                  columns={reservationColumns}
-                  rowKey="_id"
-                  pagination={false}
-                  className="dash-table"
-                />
-              )}
-            </Card>
+      {/* Charts row */}
+      {charts && (
+        <div className="dash-charts-grid">
+          {/* Monthly borrow chart */}
+          <div className="dash-chart-card">
+            <h3 className="dash-chart-title">Monthly Activity</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={monthlyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--color-text-3)" }} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--color-text-3)" }} />
+                <Tooltip contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 10, fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="issued"   name="Issued"   fill="#6366f1" radius={[4,4,0,0]} />
+                <Bar dataKey="returned" name="Returned" fill="#10b981" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
-            {/* Catalog book manager list */}
-            <Card 
-              title="Book Catalogue Manager" 
-              bordered={false} 
-              className="dash-catalog-card"
-              extra={
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate("/add-book")}>
-                  Add Book
-                </Button>
-              }
-            >
-              {isLoadingBooks ? (
-                <div className="dash-loading"><Spin size="large" tip="Loading catalog..." /></div>
-              ) : (
-                <Table
-                  dataSource={activeBooks.slice(0, 8)}
-                  columns={bookColumns}
-                  rowKey="_id"
-                  pagination={false}
-                  className="dash-table"
-                />
-              )}
-            </Card>
-          </Space>
-        </Col>
+          {/* Category pie chart */}
+          <div className="dash-chart-card">
+            <h3 className="dash-chart-title">Books by Category</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={categoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={90}
+                  paddingAngle={3} dataKey="value">
+                  {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 10, fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
 
-        {/* Action Panel and Reservation breakdown sidebar */}
-        <Col xs={24} lg={8}>
-          <Space direction="vertical" style={{ width: "100%" }} size="large">
-            {/* Quick Actions */}
-            <Card title="Quick Admin Operations" bordered={false} className="dash-actions-card">
-              <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                <Button type="primary" block size="large" icon={<PlusOutlined />} onClick={() => navigate("/add-book")}>
-                  Add New Book
-                </Button>
-                <Button block size="large" onClick={() => navigate("/manage-reservations")}>
-                  Manage Reservations
-                </Button>
-                <Button block size="large" onClick={() => navigate("/catalog")}>
-                  Browse Book Catalog
-                </Button>
-                <Button block size="large" onClick={() => navigate("/profile")}>
-                  My Profile Info
-                </Button>
-              </Space>
-            </Card>
+          {/* Popular books */}
+          {charts.popularBooks?.length > 0 && (
+            <div className="dash-chart-card dash-chart-wide">
+              <h3 className="dash-chart-title">Most Borrowed Books</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={charts.popularBooks.slice(0, 6)} layout="vertical"
+                  margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "var(--color-text-3)" }} />
+                  <YAxis type="category" dataKey="title" width={140}
+                    tick={{ fontSize: 11, fill: "var(--color-text-2)" }}
+                    tickFormatter={v => v.length > 22 ? v.slice(0, 22) + "…" : v} />
+                  <Tooltip contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 10, fontSize: 12 }} />
+                  <Bar dataKey="borrowCount" name="Borrows" fill="#8b5cf6" radius={[0,4,4,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
 
-            {/* Status Statistics summary indicator */}
-            <Card title="Reservation Statistics" bordered={false} className="dash-actions-card">
-              <List size="small" style={{ fontSize: "14px" }}>
-                <List.Item>
-                  <Space><ClockCircleOutlined style={{ color: "#d97706" }} /> <Text>Pending Approval</Text></Space>
-                  <Text strong>{pendingCount}</Text>
-                </List.Item>
-                <List.Item>
-                  <Space><CheckCircleOutlined style={{ color: "#3b82f6" }} /> <Text>Approved (Pickups)</Text></Space>
-                  <Text strong>{approvedCount}</Text>
-                </List.Item>
-                <List.Item>
-                  <Space><SyncOutlined style={{ color: "#059669" }} /> <Text>Active Borrowings</Text></Space>
-                  <Text strong>{issuedCount}</Text>
-                </List.Item>
-                <List.Item>
-                  <Space><CheckCircleOutlined style={{ color: "#64748b" }} /> <Text>Returned / Closed</Text></Space>
-                  <Text strong>{returnedCount}</Text>
-                </List.Item>
-                <List.Item>
-                  <Space><CloseCircleOutlined style={{ color: "#ef4444" }} /> <Text>Rejected / Cancelled</Text></Space>
-                  <Text strong>{cancelledCount}</Text>
-                </List.Item>
-              </List>
-            </Card>
-          </Space>
-        </Col>
-      </Row>
+      {/* Reservations table */}
+      <div className="dash-section">
+        <div className="dash-section-header">
+          <h2 className="dash-section-title">Reservations</h2>
+          <div className="dash-table-controls">
+            <Input.Search
+              placeholder="Search member or book…"
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              style={{ width: 220 }}
+              allowClear
+            />
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              style={{ width: 140 }}
+              options={["All","pending","approved","issued","returned","cancelled","overdue"].map(s => ({
+                value: s, label: s === "All" ? "All Statuses" : s,
+              }))}
+            />
+          </div>
+        </div>
+        <Table
+          dataSource={filteredBookings}
+          columns={columns}
+          rowKey="_id"
+          loading={isLoadingBookings}
+          pagination={{ pageSize: 10, showSizeChanger: false }}
+          locale={{ emptyText: <EmptyState icon="📋" title="No reservations found" /> }}
+          scroll={{ x: 800 }}
+          size="middle"
+        />
+      </div>
+
+      {/* Recent activity */}
+      {activity.length > 0 && (
+        <div className="dash-section">
+          <h2 className="dash-section-title">Recent Activity</h2>
+          <div className="activity-feed">
+            {activity.map(a => (
+              <div key={a._id} className="activity-item">
+                <div className="activity-dot" />
+                <div className="activity-body">
+                  <p className="activity-text">{a.details}</p>
+                  <span className="activity-time">{new Date(a.createdAt).toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
