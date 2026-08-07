@@ -5,7 +5,7 @@ const multer = require('multer');
 // Configure Cloudinary (reads from env vars)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
@@ -13,7 +13,7 @@ cloudinary.config({
 const bookCoverStorage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder:         'library_lms/books',
+    folder: 'library_lms/books',
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
     transformation: [{ width: 400, height: 560, crop: 'fill', quality: 'auto' }],
   },
@@ -23,13 +23,13 @@ const bookCoverStorage = new CloudinaryStorage({
 const profilePicStorage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder:         'library_lms/profiles',
+    folder: 'library_lms/profiles',
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
     transformation: [{ width: 200, height: 200, crop: 'fill', quality: 'auto' }],
   },
 });
 
-const uploadBookCover  = multer({ storage: bookCoverStorage,  limits: { fileSize: 5 * 1024 * 1024 } });
+const uploadBookCover = multer({ storage: bookCoverStorage, limits: { fileSize: 5 * 1024 * 1024 } });
 const uploadProfilePic = multer({ storage: profilePicStorage, limits: { fileSize: 2 * 1024 * 1024 } });
 
 module.exports = { cloudinary, uploadBookCover, uploadProfilePic };
