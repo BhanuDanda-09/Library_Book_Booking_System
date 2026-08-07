@@ -1,49 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import "./BookCover.css";
 
-// ── Open Library Covers API (free, no key needed) ─────────────────────────────
-function getOpenLibraryUrl(isbn) {
-  if (!isbn) return null;
-  const clean = isbn.replace(/[-\s]/g, "");
-  // ?default=false → returns 404 instead of a 1×1 blank gif when no cover exists
-  return `https://covers.openlibrary.org/b/isbn/${clean}-L.jpg?default=false`;
-}
-
-// ── Google Books API (free tier, no key for basic queries) ────────────────────
-async function fetchGoogleBooksCover(isbn, title, author) {
-  try {
-    let q;
-    if (isbn) {
-      q = `isbn:${isbn.replace(/[-\s]/g, "")}`;
-    } else {
-      q = `intitle:${encodeURIComponent(title || "")}`;
-      if (author) q += `+inauthor:${encodeURIComponent(author.split(",")[0].trim())}`;
-    }
-
-    const res = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=1&fields=items/volumeInfo/imageLinks`,
-      { signal: AbortSignal.timeout(6000) }
-    );
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    const links = data?.items?.[0]?.volumeInfo?.imageLinks;
-    if (!links) return null;
-
-    // Prefer highest resolution available
-    const url =
-      links.extraLarge ||
-      links.large      ||
-      links.medium     ||
-      links.small      ||
-      links.thumbnail;
-    // Force HTTPS and boost zoom for better resolution
-    return url?.replace("http:", "https:").replace(/zoom=\d/, "zoom=3") || null;
-  } catch {
-    return null;
-  }
-}
-
 // ── Category gradient palette ─────────────────────────────────────────────────
 const PALETTE = {
   "Fiction":                 ["#667eea", "#764ba2"],
@@ -60,7 +17,6 @@ const PALETTE = {
   "Artificial Intelligence": ["#0f0c29", "#302b63"],
   "Computer Science":        ["#1a1a2e", "#16213e"],
   "Data Science":            ["#093028", "#237a57"],
-  // ── New categories matching the seeded data ──────────────────────────────────
   "Web Development":         ["#06b6d4", "#0284c7"],
   "Databases":               ["#14b8a6", "#0f766e"],
   "Networking":              ["#22c55e", "#15803d"],
@@ -75,79 +31,151 @@ const PALETTE = {
   _default:                  ["#6366f1", "#8b5cf6"],
 };
 
-// ── BookCover Component ───────────────────────────────────────────────────────
+// ── Cover URL builders (no API call needed) ───────────────────────────────────
+function openLibraryUrl(isbn) {
+  if (!isbn) return null;
+  const c = isbn.replace(/[-\s]/g, "");
+  return `https://covers.openlibrary.org/b/isbn/${c}-L.jpg?default=false`;
+}
+
+// ── Open Library Search API (async, free, no quota) ──────────────────────────
+async function fetchOpenLibraryCover(isbn, title, author) {
+  const olCoverUrl = (id) =>
+    id ? `https://covers.openlibrary.org/b/id/${id}-L.jpg` : null;
+
+  const searchOL = async (params) => {
+    try {
+      const res = await fetch(
+        `https://openlibrary.org/search.json?${params}&fields=cover_i&limit=1`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      return olCoverUrl(data?.docs?.[0]?.cover_i);
+    } catch {
+      return null;
+    }
+  };
+
+  // 1. ISBN search (most precise)
+  if (isbn) {
+    const clean = isbn.replace(/[-\s]/g, "");
+    const url = await searchOL(`isbn=${clean}`);
+    if (url) return url;
+  }
+
+  // 2. Title + author
+  if (title) {
+    const lastName = author
+      ? (author.split(",")[0].trim().split(" ").pop() || "")
+      : "";
+    const q = encodeURIComponent(title + (lastName ? ` ${lastName}` : ""));
+    const url = await searchOL(`q=${q}`);
+    if (url) return url;
+  }
+
+  // 3. Title-only
+  if (title) {
+    const url = await searchOL(`q=${encodeURIComponent(title)}`);
+    if (url) return url;
+  }
+
+  return null;
+}
+
+// ── STATES ─────────────────────────────────────────────────────────────
+// "loading"   → shimmer, trying Open Library + Google Books in parallel
+// "image"     → we have a working image src
+// "error"     → img load failed → try next source
+// "fallback"  → all sources exhausted → gradient placeholder
+
 /**
- * Smart book cover with 3-stage fallback:
- *   1. book.coverImage (Cloudinary or any real URL)
- *   2. Open Library by ISBN
- *   3. Google Books by ISBN / title+author
- *   4. Styled gradient placeholder
+ * BookCover
+ *
+ * Priority chain:
+ *   1. book.coverImage  (Cloudinary or any DB-stored URL)
+ *   2. Open Library     (direct img URL, no API call, fast)
+ *   3. Google Books API (async search by ISBN → title → title+author)
+ *   4. Gradient placeholder
  */
-export default function BookCover({ book, imgClassName, className = "", style, onClick }) {
+export default function BookCover({
+  book,
+  imgClassName,
+  className = "",
+  style,
+  onClick,
+}) {
+  // Determine initial state
   const hasRealCover =
     book?.coverImage &&
-    !book.coverImage.includes("picsum.photos") &&
-    book.coverImage.trim() !== "";
+    book.coverImage.trim() !== "" &&
+    !book.coverImage.includes("picsum.photos");
 
   const hasIsbn = !!book?.isbn;
 
-  const initStage = hasRealCover ? "custom" : hasIsbn ? "openLibrary" : "google";
-  const initSrc   = hasRealCover
-    ? book.coverImage
-    : hasIsbn
-    ? getOpenLibraryUrl(book.isbn)
-    : null;
+  // Build ordered source list
+  const sourcesRef = useRef(null);
+  if (!sourcesRef.current) {
+    const list = [];
+    if (hasRealCover) list.push({ type: "direct", src: book.coverImage });
+    if (hasIsbn)      list.push({ type: "direct", src: openLibraryUrl(book.isbn) });
+    // Google Books is async — handled separately
+    sourcesRef.current = list;
+  }
 
-  const [src,             setSrc]             = useState(initSrc);
-  const [stage,           setStage]           = useState(initStage);
-  const [showPlaceholder, setShowPlaceholder] = useState(false);
-  const [fetching,        setFetching]        = useState(false);
-  const googleFetchedRef                      = useRef(false);
+  const [srcIndex,       setSrcIndex]       = useState(0);
+  const [imageSrc,       setImageSrc]       = useState(sourcesRef.current[0]?.src ?? null);
+  const [state,          setState]          = useState(
+    sourcesRef.current.length > 0 ? "image" : "loading"
+  );
+  const googleFiredRef = useRef(false);
 
-  // If no isbn and no real cover, go straight to Google
+  // Kick off Google Books fetch if needed on mount
   useEffect(() => {
-    if (initStage === "google" && !googleFetchedRef.current) {
-      googleFetchedRef.current = true;
-      tryGoogle();
+    if (sourcesRef.current.length === 0 && !googleFiredRef.current) {
+      googleFiredRef.current = true;
+      fetchOpenLibraryCover(book?.isbn, book?.title, book?.author).then((url) => {
+        if (url) {
+          setImageSrc(url);
+          setState("image");
+        } else {
+          setState("placeholder");
+        }
+      });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const tryGoogle = async () => {
-    setFetching(true);
-    const url = await fetchGoogleBooksCover(book?.isbn, book?.title, book?.author);
-    setFetching(false);
-    if (url) {
-      setSrc(url);
-      setStage("googleResult");
+  // Handle img onError — advance to next source
+  const handleError = () => {
+    const next = srcIndex + 1;
+    if (next < sourcesRef.current.length) {
+      setSrcIndex(next);
+      setImageSrc(sourcesRef.current[next].src);
+      return;
+    }
+
+    // No more direct sources — try Google Books asynchronously
+    if (!googleFiredRef.current) {
+      googleFiredRef.current = true;
+      setState("loading");
+      fetchOpenLibraryCover(book?.isbn, book?.title, book?.author).then((url) => {
+        if (url) {
+          setImageSrc(url);
+          setState("image");
+        } else {
+          setState("placeholder");
+        }
+      });
     } else {
-      setShowPlaceholder(true);
+      setState("placeholder");
     }
   };
 
-  const handleError = async () => {
-    if (stage === "custom") {
-      if (hasIsbn) {
-        setStage("openLibrary");
-        setSrc(getOpenLibraryUrl(book.isbn));
-        return;
-      }
-    }
-    if (stage === "openLibrary" || (stage === "custom" && !hasIsbn)) {
-      if (!googleFetchedRef.current) {
-        googleFetchedRef.current = true;
-        setStage("google");
-        await tryGoogle();
-        return;
-      }
-    }
-    setShowPlaceholder(true);
-  };
-
+  // ── Render ────────────────────────────────────────────────────────────────
   const colors = PALETTE[book?.category] || PALETTE._default;
 
-  // Placeholder
-  if (showPlaceholder || (!src && !fetching)) {
+  if (state === "placeholder") {
     return (
       <div
         className={`bk-placeholder ${className}`}
@@ -165,8 +193,7 @@ export default function BookCover({ book, imgClassName, className = "", style, o
     );
   }
 
-  // Shimmer loading
-  if (fetching) {
+  if (state === "loading") {
     return (
       <div className={`bk-shimmer-wrap ${className}`} style={style} onClick={onClick}>
         <div className="bk-shimmer" />
@@ -174,10 +201,10 @@ export default function BookCover({ book, imgClassName, className = "", style, o
     );
   }
 
-  // Actual image
+  // state === "image"
   return (
     <img
-      src={src}
+      src={imageSrc}
       alt={book?.title || "Book cover"}
       className={imgClassName}
       style={style}
