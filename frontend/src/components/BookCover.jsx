@@ -31,72 +31,61 @@ const PALETTE = {
   _default:                  ["#6366f1", "#8b5cf6"],
 };
 
-// ── Cover URL builders (no API call needed) ───────────────────────────────────
-function openLibraryUrl(isbn) {
+// ── ISBN-only URL builders (no title search — prevents wrong-book covers) ──────
+
+/** Open Library direct ISBN cover. Returns 404 (not a placeholder) if no cover. */
+function olIsbnUrl(isbn) {
   if (!isbn) return null;
   const c = isbn.replace(/[-\s]/g, "");
   return `https://covers.openlibrary.org/b/isbn/${c}-L.jpg?default=false`;
 }
 
-// ── Open Library Search API (async, free, no quota) ──────────────────────────
-async function fetchOpenLibraryCover(isbn, title, author) {
-  const olCoverUrl = (id) =>
-    id ? `https://covers.openlibrary.org/b/id/${id}-L.jpg` : null;
-
-  const searchOL = async (params) => {
-    try {
-      const res = await fetch(
-        `https://openlibrary.org/search.json?${params}&fields=cover_i&limit=1`,
-        { signal: AbortSignal.timeout(8000) }
-      );
-      if (!res.ok) return null;
-      const data = await res.json();
-      return olCoverUrl(data?.docs?.[0]?.cover_i);
-    } catch {
-      return null;
-    }
-  };
-
-  // 1. ISBN search (most precise)
-  if (isbn) {
-    const clean = isbn.replace(/[-\s]/g, "");
-    const url = await searchOL(`isbn=${clean}`);
-    if (url) return url;
-  }
-
-  // 2. Title + author
-  if (title) {
-    const lastName = author
-      ? (author.split(",")[0].trim().split(" ").pop() || "")
-      : "";
-    const q = encodeURIComponent(title + (lastName ? ` ${lastName}` : ""));
-    const url = await searchOL(`q=${q}`);
-    if (url) return url;
-  }
-
-  // 3. Title-only
-  if (title) {
-    const url = await searchOL(`q=${encodeURIComponent(title)}`);
-    if (url) return url;
-  }
-
-  return null;
+/** Google Books embed URL — ISBN-specific, no API quota. */
+function googleEmbedUrl(isbn) {
+  if (!isbn) return null;
+  const c = isbn.replace(/[-\s]/g, "");
+  return `https://books.google.com/books/content?vid=ISBN:${c}&printsec=frontcover&img=1&zoom=3&source=gbs_api`;
 }
 
-// ── STATES ─────────────────────────────────────────────────────────────
-// "loading"   → shimmer, trying Open Library + Google Books in parallel
-// "image"     → we have a working image src
-// "error"     → img load failed → try next source
-// "fallback"  → all sources exhausted → gradient placeholder
+/**
+ * Open Library ISBN search — async, returns a verified cover URL or null.
+ * Uses ONLY the isbn= param. NO title search — prevents returning wrong books.
+ */
+async function fetchOLIsbnCover(isbn) {
+  if (!isbn) return null;
+  const clean = isbn.replace(/[-\s]/g, "");
+  try {
+    const res = await fetch(
+      `https://openlibrary.org/search.json?isbn=${clean}&fields=cover_i&limit=1`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const id = data?.docs?.[0]?.cover_i;
+    return id ? `https://covers.openlibrary.org/b/id/${id}-L.jpg` : null;
+  } catch {
+    return null;
+  }
+}
+
+// ── State machine ─────────────────────────────────────────────────────────────
+// "image"       → currently showing an image (direct src list)
+// "loading"     → async fetch in progress → show shimmer
+// "placeholder" → all sources exhausted → show gradient
 
 /**
  * BookCover
  *
+ * IMPORTANT — all fallbacks are ISBN-strict.
+ * Title-based search has been intentionally removed to prevent
+ * a wrong book's cover appearing (e.g. "Hell Bent" for "CAT 2024").
+ *
  * Priority chain:
- *   1. book.coverImage  (Cloudinary or any DB-stored URL)
- *   2. Open Library     (direct img URL, no API call, fast)
- *   3. Google Books API (async search by ISBN → title → title+author)
- *   4. Gradient placeholder
+ *   1. book.coverImage  (DB-stored, verified URL)
+ *   2. Open Library direct ISBN URL (fast, no API, 404 on miss)
+ *   3. Google Books embed URL (ISBN-specific, no quota)
+ *   4. Open Library ISBN search API (async, ISBN only)
+ *   5. Gradient category placeholder
  */
 export default function BookCover({
   book,
@@ -105,7 +94,6 @@ export default function BookCover({
   style,
   onClick,
 }) {
-  // Determine initial state
   const hasRealCover =
     book?.coverImage &&
     book.coverImage.trim() !== "" &&
@@ -113,59 +101,53 @@ export default function BookCover({
 
   const hasIsbn = !!book?.isbn;
 
-  // Build ordered source list
+  // Build ordered direct-source list (tried sequentially via onError)
   const sourcesRef = useRef(null);
   if (!sourcesRef.current) {
     const list = [];
-    if (hasRealCover) list.push({ type: "direct", src: book.coverImage });
-    if (hasIsbn)      list.push({ type: "direct", src: openLibraryUrl(book.isbn) });
-    // Google Books is async — handled separately
+    if (hasRealCover) list.push(book.coverImage);
+    if (hasIsbn) {
+      list.push(olIsbnUrl(book.isbn));
+      list.push(googleEmbedUrl(book.isbn));
+    }
     sourcesRef.current = list;
   }
 
-  const [srcIndex,       setSrcIndex]       = useState(0);
-  const [imageSrc,       setImageSrc]       = useState(sourcesRef.current[0]?.src ?? null);
-  const [state,          setState]          = useState(
+  const [srcIndex, setSrcIndex] = useState(0);
+  const [imageSrc, setImageSrc] = useState(sourcesRef.current[0] ?? null);
+  const [state, setState]       = useState(
     sourcesRef.current.length > 0 ? "image" : "loading"
   );
-  const googleFiredRef = useRef(false);
+  const asyncFiredRef = useRef(false);
 
-  // Kick off Google Books fetch if needed on mount
+  // For books with no direct sources, kick off async OL ISBN search on mount
   useEffect(() => {
-    if (sourcesRef.current.length === 0 && !googleFiredRef.current) {
-      googleFiredRef.current = true;
-      fetchOpenLibraryCover(book?.isbn, book?.title, book?.author).then((url) => {
-        if (url) {
-          setImageSrc(url);
-          setState("image");
-        } else {
-          setState("placeholder");
-        }
+    if (sourcesRef.current.length === 0 && !asyncFiredRef.current) {
+      asyncFiredRef.current = true;
+      fetchOLIsbnCover(book?.isbn).then((url) => {
+        if (url) { setImageSrc(url); setState("image"); }
+        else      { setState("placeholder"); }
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Handle img onError — advance to next source
+  // Handle img onError — try next direct source, then async, then placeholder
   const handleError = () => {
     const next = srcIndex + 1;
     if (next < sourcesRef.current.length) {
       setSrcIndex(next);
-      setImageSrc(sourcesRef.current[next].src);
+      setImageSrc(sourcesRef.current[next]);
       return;
     }
 
-    // No more direct sources — try Google Books asynchronously
-    if (!googleFiredRef.current) {
-      googleFiredRef.current = true;
+    // All direct sources exhausted → try async OL ISBN search
+    if (!asyncFiredRef.current) {
+      asyncFiredRef.current = true;
       setState("loading");
-      fetchOpenLibraryCover(book?.isbn, book?.title, book?.author).then((url) => {
-        if (url) {
-          setImageSrc(url);
-          setState("image");
-        } else {
-          setState("placeholder");
-        }
+      fetchOLIsbnCover(book?.isbn).then((url) => {
+        if (url) { setImageSrc(url); setState("image"); }
+        else      { setState("placeholder"); }
       });
     } else {
       setState("placeholder");
@@ -201,7 +183,6 @@ export default function BookCover({
     );
   }
 
-  // state === "image"
   return (
     <img
       src={imageSrc}
